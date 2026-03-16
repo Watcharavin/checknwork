@@ -83,7 +83,8 @@
     }
     select option { background: #1e1e3a; }
     textarea { resize: vertical; min-height: 80px; }
-    input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); }
+    .date-row { display: flex; gap: 8px; }
+    .date-row select { flex: 1; min-width: 0; }
 
     .input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
@@ -196,11 +197,19 @@
 
       <div class="field">
         <label>วันที่เริ่มลา</label>
-        <input type="date" id="startDate" lang="en">
+        <div class="date-row">
+          <select id="startY"></select>
+          <select id="startM"></select>
+          <select id="startD"></select>
+        </div>
       </div>
       <div class="field">
         <label>วันที่สุดท้าย</label>
-        <input type="date" id="endDate" lang="en">
+        <div class="date-row">
+          <select id="endY"></select>
+          <select id="endM"></select>
+          <select id="endD"></select>
+        </div>
       </div>
 
       <div class="field">
@@ -227,6 +236,56 @@
   let selectedType = null;
   let myName = null;
 
+  const MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+
+  function initDateSelect(prefix, defaultDate) {
+    const [y, m, d] = defaultDate.split('-').map(Number);
+    const yEl = document.getElementById(prefix + 'Y');
+    const mEl = document.getElementById(prefix + 'M');
+    const dEl = document.getElementById(prefix + 'D');
+
+    // Year: current year ±2
+    yEl.innerHTML = '';
+    for (let yr = y - 1; yr <= y + 2; yr++) {
+      const opt = document.createElement('option');
+      opt.value = yr; opt.textContent = yr;
+      if (yr === y) opt.selected = true;
+      yEl.appendChild(opt);
+    }
+    // Month
+    mEl.innerHTML = '';
+    MONTHS.forEach((name, i) => {
+      const opt = document.createElement('option');
+      opt.value = String(i + 1).padStart(2, '0');
+      opt.textContent = name;
+      if (i + 1 === m) opt.selected = true;
+      mEl.appendChild(opt);
+    });
+    // Day: rebuild when year/month change
+    function buildDays() {
+      const curD = dEl.value ? parseInt(dEl.value) : d;
+      const days = new Date(parseInt(yEl.value), parseInt(mEl.value), 0).getDate();
+      dEl.innerHTML = '';
+      for (let dd = 1; dd <= days; dd++) {
+        const opt = document.createElement('option');
+        opt.value = String(dd).padStart(2, '0');
+        opt.textContent = dd;
+        if (dd === Math.min(curD, days)) opt.selected = true;
+        dEl.appendChild(opt);
+      }
+    }
+    buildDays();
+    yEl.addEventListener('change', buildDays);
+    mEl.addEventListener('change', buildDays);
+  }
+
+  function getDateVal(prefix) {
+    const y = document.getElementById(prefix + 'Y').value;
+    const m = document.getElementById(prefix + 'M').value;
+    const d = document.getElementById(prefix + 'D').value;
+    return `${y}-${m}-${d}`;
+  }
+
   function toast(msg, type = 'info', dur = 3500) {
     const el = document.createElement('div');
     el.className = `toast toast-${type}`;
@@ -249,8 +308,8 @@
 
     // ตั้ง default วันที่เป็นวันนี้
     const today = new Date().toISOString().slice(0, 10);
-    document.getElementById('startDate').value = today;
-    document.getElementById('endDate').value   = today;
+    initDateSelect('start', today);
+    initDateSelect('end',   today);
   });
 
   function selectType(type) {
@@ -263,8 +322,8 @@
 
   async function submitLeave() {
     if (!selectedType) { toast('กรุณาเลือกประเภทการลา', 'warning'); return; }
-    const startDate = document.getElementById('startDate').value;
-    const endDate   = document.getElementById('endDate').value;
+    const startDate = getDateVal('start');
+    const endDate   = getDateVal('end');
     const reason    = document.getElementById('reason').value.trim();
 
     if (!startDate || !endDate) { toast('กรุณาเลือกวันที่', 'warning'); return; }
