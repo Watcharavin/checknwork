@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard ของฉัน</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/db.js"></script>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="js/liff-auth.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Sarabun', sans-serif;
+      min-height: 100vh;
+      background: #07071a;
+      color: #e2e8f0;
+      padding: 24px 16px 60px;
+      position: relative;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 55% 40% at 10% 5%,  rgba(99,102,241,0.18) 0%, transparent 55%),
+        radial-gradient(ellipse 45% 35% at 90% 90%, rgba(16,185,129,0.12) 0%, transparent 52%);
+    }
+    body::after {
+      content: '';
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image: radial-gradient(circle, rgba(255,255,255,0.028) 1px, transparent 1px);
+      background-size: 30px 30px;
+      mask-image: radial-gradient(ellipse 85% 85% at 50% 50%, black 20%, transparent 100%);
+      -webkit-mask-image: radial-gradient(ellipse 85% 85% at 50% 50%, black 20%, transparent 100%);
+    }
+
+    .container { width: 100%; max-width: 500px; margin: 0 auto; position: relative; z-index: 1; }
+
+    /* Header */
+    .header-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .back-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: #475569; text-decoration: none; font-size: 0.84em;
+      padding: 7px 14px; border-radius: 20px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.09);
+      transition: all 0.25s ease;
+    }
+    .back-btn:hover { color: #e2e8f0; background: rgba(255,255,255,0.09); }
+
+    /* Profile Card */
+    .profile-card {
+      background: rgba(99,102,241,0.08);
+      border: 1px solid rgba(99,102,241,0.2);
+      border-radius: 22px; padding: 20px;
+      display: flex; align-items: center; gap: 16px;
+      margin-bottom: 20px;
+      animation: fadeInDown 0.5s ease;
+    }
+    .profile-card img {
+      width: 58px; height: 58px; border-radius: 50%;
+      border: 2px solid rgba(99,102,241,0.4);
+      object-fit: cover; flex-shrink: 0;
+    }
+    .profile-card .p-name {
+      font-size: 1.1em; font-weight: 700; color: #e2e8f0;
+    }
+    .profile-card .p-sub {
+      font-size: 0.78em; color: #475569; margin-top: 3px;
+    }
+
+    /* Month Selector */
+    .month-row {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 16px; flex-wrap: wrap;
+    }
+    .month-row label { font-size: 0.78em; color: #475569; font-weight: 600; }
+    input[type="month"] {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px; color: #e2e8f0;
+      font-size: 0.88em; font-family: 'Sarabun', sans-serif;
+      padding: 7px 12px; outline: none;
+    }
+
+    /* Stat Cards */
+    .stat-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 10px; margin-bottom: 20px;
+    }
+    .stat-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 18px; padding: 16px 14px;
+      text-align: center;
+      animation: fadeInUp 0.4s ease both;
+    }
+    .stat-card:nth-child(1) { animation-delay: 0.05s; }
+    .stat-card:nth-child(2) { animation-delay: 0.10s; }
+    .stat-card:nth-child(3) { animation-delay: 0.15s; }
+    .stat-card:nth-child(4) { animation-delay: 0.20s; }
+    .stat-val {
+      font-size: 2em; font-weight: 700; line-height: 1.1;
+    }
+    .stat-label { font-size: 0.75em; color: #475569; margin-top: 5px; }
+    .c-indigo { color: #818cf8; }
+    .c-green  { color: #34d399; }
+    .c-yellow { color: #fbbf24; }
+    .c-red    { color: #f87171; }
+
+    /* Progress Bar */
+    .progress-wrap {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 18px; padding: 18px 20px;
+      margin-bottom: 20px;
+      animation: fadeInUp 0.4s ease 0.25s both;
+    }
+    .progress-label {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 10px;
+    }
+    .progress-label span:first-child { font-size: 0.85em; color: #94a3b8; font-weight: 600; }
+    .progress-label span:last-child  { font-size: 1em; font-weight: 700; }
+    .progress-bar {
+      height: 8px; background: rgba(255,255,255,0.07);
+      border-radius: 99px; overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; border-radius: 99px;
+      transition: width 0.8s cubic-bezier(0.34,1.2,0.64,1);
+    }
+
+    /* Log List */
+    .section-title {
+      font-size: 0.8em; font-weight: 600; color: #475569;
+      letter-spacing: 0.07em; text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .log-list { display: flex; flex-direction: column; gap: 8px; }
+    .log-item {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px; padding: 13px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      animation: fadeInUp 0.35s ease both;
+    }
+    .log-item .li-date { font-size: 0.88em; color: #94a3b8; }
+    .log-item .li-time { font-size: 1em; font-weight: 700; color: #a5b4fc; font-variant-numeric: tabular-nums; }
+    .log-item .li-tag  {
+      font-size: 0.72em; font-weight: 600;
+      padding: 3px 9px; border-radius: 20px;
+    }
+    .tag-ontime { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.3); }
+    .tag-late   { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
+    .li-gps { color: #34d399; text-decoration: none; font-size: 0.82em; margin-left: 8px; }
+
+    .empty { text-align: center; padding: 32px; color: #334155; font-size: 0.88em; }
+
+    /* Streak */
+    .streak-card {
+      background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(79,70,229,0.06));
+      border: 1px solid rgba(99,102,241,0.22);
+      border-radius: 18px; padding: 16px 20px;
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 20px;
+      animation: fadeInUp 0.4s ease 0.3s both;
+    }
+    .streak-fire { font-size: 36px; }
+    .streak-val  { font-size: 1.6em; font-weight: 700; color: #818cf8; }
+    .streak-sub  { font-size: 0.78em; color: #475569; margin-top: 2px; }
+
+    /* Loading */
+    .spinner-sm {
+      display: inline-block; width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.1);
+      border-top-color: #6366f1; border-radius: 50%;
+      animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 6px;
+    }
+    .loading { text-align: center; padding: 40px; color: #334155; }
+
+    @keyframes spin        { to { transform: rotate(360deg); } }
+    @keyframes fadeInDown  { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeInUp    { from { opacity: 0; transform: translateY(16px);  } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header-row">
+    <a href="index.html" class="back-btn">← กลับ</a>
+    <div id="userBadge" style="
+      display:none; align-items:center; gap:6px;
+      background:rgba(255,255,255,0.05);
+      border:1px solid rgba(255,255,255,0.09);
+      padding:5px 10px; border-radius:20px;
+    "></div>
+  </div>
+
+  <!-- Profile -->
+  <div class="profile-card" id="profileCard" style="display:none">
+    <img id="profilePic" src="" onerror="this.style.display='none'">
+    <div>
+      <div class="p-name" id="profileName">—</div>
+      <div class="p-sub" id="profileSub">กำลังโหลดข้อมูล...</div>
+    </div>
+  </div>
+
+  <!-- Month -->
+  <div class="month-row">
+    <label>เดือน</label>
+    <input type="month" id="filterMonth" onchange="loadMyData()">
+  </div>
+
+  <!-- Stats -->
+  <div id="mainContent">
+    <div class="loading"><span class="spinner-sm"></span>กำลังโหลด...</div>
+  </div>
+
+</div>
+
+<script>
+  let myUserId = null;
+
+  window.addEventListener('load', async () => {
+    const ok = await LiffAuth.init();
+    if (!ok) return;
+    renderUserBadge('userBadge');
+
+    const profile = LiffAuth.getProfile();
+    myUserId = LiffAuth.getUserId();
+
+    // แสดง profile card
+    document.getElementById('profilePic').src  = profile.pictureUrl || '';
+    document.getElementById('profileName').textContent = profile.displayName || '';
+    document.getElementById('profileCard').style.display = 'flex';
+
+    // ตั้งเดือนปัจจุบัน
+    const now = new Date();
+    document.getElementById('filterMonth').value =
+      now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+
+    loadMyData();
+  });
+
+  async function loadMyData() {
+    const monthVal = document.getElementById('filterMonth').value;
+    const [year, month] = monthVal.split('-').map(Number);
+
+    document.getElementById('mainContent').innerHTML =
+      '<div class="loading"><span class="spinner-sm"></span>กำลังโหลด...</div>';
+
+    try {
+      const db = firebase.firestore();
+
+      // 1. หาชื่อที่ลงทะเบียนไว้ (registeredBy == lineUserId ของตัวเอง)
+      const userSnap = await db.collection('users')
+        .where('registeredBy', '==', myUserId)
+        .get();
+
+      if (userSnap.empty) {
+        document.getElementById('mainContent').innerHTML =
+          '<div class="empty" style="padding:48px">ยังไม่ได้ลงทะเบียนใบหน้า<br><br>' +
+          '<a href="register.html" style="color:#a5b4fc;font-size:0.9em">👤 ลงทะเบียนเลย</a></div>';
+        document.getElementById('profileSub').textContent = 'ยังไม่มีข้อมูล';
+        return;
+      }
+
+      // ใช้ชื่อล่าสุดที่ลงทะเบียน
+      const myName = userSnap.docs[userSnap.docs.length - 1].data().name;
+      document.getElementById('profileSub').textContent =
+        'ชื่อที่ลงทะเบียน: ' + myName;
+
+      // 2. ดึง attendance ด้วย name แทน lineUserId
+      const snap = await db.collection('attendance')
+        .where('name', '==', myName)
+        .get();
+
+      const all = snap.docs.map(d => ({ ...d.data() }))
+        .filter(r => {
+          if (!r.timestamp) return false;
+          const d = r.timestamp.toDate ? r.timestamp.toDate() : new Date(r.timestamp);
+          return d.getFullYear() === year && (d.getMonth() + 1) === month;
+        })
+        .sort((a, b) => {
+          const ta = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(a.timestamp);
+          const tb = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(b.timestamp);
+          return tb - ta;
+        });
+
+      const hoursConfig = await DB.getHours();
+      window._lateAfter = hoursConfig.lateAfter || '09:00';
+      const workDays  = countWorkDays(year, month);
+      const days      = new Set(all.map(r => r.date)).size;
+      const lateCount = all.filter(r => isLate(r.time)).length;
+      const ontime    = all.length - lateCount;
+      const pct       = workDays > 0 ? Math.round(days / workDays * 100) : 0;
+      const streak    = calcStreak(all);
+
+      // update profile sub
+      document.getElementById('profileSub').textContent =
+        'ข้อมูลเดือน ' + new Date(year, month - 1).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' });
+
+      const barColor = pct >= 90 ? '#34d399' : pct >= 70 ? '#fbbf24' : '#f87171';
+      const pctClass = pct >= 90 ? 'c-green' : pct >= 70 ? 'c-yellow' : 'c-red';
+
+      document.getElementById('mainContent').innerHTML = `
+        <!-- Stat Grid -->
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-val c-indigo">${days}</div>
+            <div class="stat-label">วันที่มา</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-val ${pctClass}">${pct}%</div>
+            <div class="stat-label">อัตราการมา</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-val c-green">${ontime}</div>
+            <div class="stat-label">มาตรงเวลา</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-val c-yellow">${lateCount}</div>
+            <div class="stat-label">มาสาย</div>
+          </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="progress-wrap">
+          <div class="progress-label">
+            <span>อัตราการเข้างาน</span>
+            <span class="${pctClass}">${days} / ${workDays} วัน</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"
+              style="width:0%; background: linear-gradient(90deg, ${barColor}88, ${barColor})">
+            </div>
+          </div>
+        </div>
+
+        <!-- Streak -->
+        <div class="streak-card">
+          <div class="streak-fire">🔥</div>
+          <div>
+            <div class="streak-val">${streak} วัน</div>
+            <div class="streak-sub">มาติดต่อกัน (streak)</div>
+          </div>
+        </div>
+
+        <!-- Log -->
+        <div class="section-title">บันทึกการเช็คอิน / ออกงาน</div>
+        <div class="log-list" id="logList">
+          ${all.length === 0
+            ? '<div class="empty">ยังไม่มีการเช็คอินในเดือนนี้</div>'
+            : (() => {
+                // จับคู่ checkin+checkout ต่อวัน
+                const byDate = {};
+                all.forEach(r => {
+                  if (!byDate[r.date]) byDate[r.date] = { checkin: null, checkout: null, date: r.date };
+                  if (!r.type || r.type === 'checkin') byDate[r.date].checkin  = r;
+                  if (r.type === 'checkout')           byDate[r.date].checkout = r;
+                });
+                return Object.values(byDate).map((g, i) => {
+                  const late   = g.checkin && isLate(g.checkin.time);
+                  const inTime = g.checkin  ? (g.checkin.time  || '—').slice(0,5) : '—';
+                  const outTime= g.checkout ? (g.checkout.time || '—').slice(0,5) : null;
+                  const gps    = g.checkin?.mapLink
+                    ? `<a href="${g.checkin.mapLink}" target="_blank" class="li-gps">📍</a>` : '';
+                  return `<div class="log-item" style="animation-delay:${i * 0.04}s">
+                    <div>
+                      <div class="li-date">${g.date || '—'}</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+                      <div style="text-align:right">
+                        <div style="display:flex;align-items:center;gap:6px">
+                          <span style="font-size:0.72em;color:#34d399">เข้า</span>
+                          <span class="li-time" style="color:#34d399">${inTime}</span>
+                          ${late ? '<span class="li-tag tag-late">สาย</span>' : '<span class="li-tag tag-ontime">ตรงเวลา</span>'}
+                        </div>
+                        <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+                          <span style="font-size:0.72em;color:#fbbf24">ออก</span>
+                          <span class="li-time" style="color:${outTime ? '#fbbf24' : '#334155'}">${outTime || 'ยังไม่ออก'}</span>
+                        </div>
+                      </div>
+                      ${gps}
+                    </div>
+                  </div>`;
+                }).join('');
+              })()
+          }
+        </div>
+      `;
+
+      // animate progress bar
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const fill = document.getElementById('progressFill');
+        if (fill) fill.style.width = pct + '%';
+      }));
+
+    } catch (e) {
+      document.getElementById('mainContent').innerHTML =
+        `<div class="loading" style="color:#f87171">❌ โหลดไม่ได้: ${e.message}</div>`;
+    }
+  }
+
+  // นับวันทำงาน จันทร์–ศุกร์
+  function countWorkDays(year, month) {
+    let count = 0;
+    const days = new Date(year, month, 0).getDate();
+    for (let d = 1; d <= days; d++) {
+      const day = new Date(year, month - 1, d).getDay();
+      if (day >= 1 && day <= 5) count++;
+    }
+    return count;
+  }
+
+  function isLate(timeStr) {
+    if (!timeStr) return false;
+    const threshold = window._lateAfter || '09:00';
+    return timeStr.slice(0,5) > threshold;
+  }
+
+  // คำนวณ streak (วันติดต่อกันนับจากวันนี้ย้อนหลัง)
+  function calcStreak(records) {
+    const dates = [...new Set(records.map(r => r.date))].sort().reverse();
+    if (!dates.length) return 0;
+    let streak = 0;
+    let check  = new Date();
+    check.setHours(0, 0, 0, 0);
+    for (const dateStr of dates) {
+      const d = parseThaiDate(dateStr);
+      if (!d) break;
+      const diff = Math.round((check - d) / 86400000);
+      if (diff === 0 || diff === 1) { streak++; check = d; }
+      else break;
+    }
+    return streak;
+  }
+
+  // แปลงวันที่ไทยกลับเป็น Date (รองรับ "16/3/2568" และ "16 มี.ค. 68")
+  function parseThaiDate(str) {
+    try {
+      if (!str) return null;
+      // รูปแบบ d/M/YYYY (พ.ศ.)
+      const m = str.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (m) {
+        const year = parseInt(m[3]) > 2500 ? parseInt(m[3]) - 543 : parseInt(m[3]);
+        return new Date(year, parseInt(m[2]) - 1, parseInt(m[1]));
+      }
+      return null;
+    } catch { return null; }
+  }
+</script>
+</body>
+</html>

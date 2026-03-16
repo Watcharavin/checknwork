@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ลงทะเบียนใบหน้า</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/db.js"></script>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="js/liff-auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Sarabun', sans-serif;
+      min-height: 100vh;
+      background: #07071a;
+      color: #e2e8f0;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 28px 16px 60px;
+      position: relative;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 65% 50% at 5% 5%,  rgba(99,102,241,0.2) 0%, transparent 55%),
+        radial-gradient(ellipse 45% 40% at 95% 85%, rgba(139,92,246,0.1) 0%, transparent 50%);
+    }
+    body::after {
+      content: '';
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 30px 30px;
+      mask-image: radial-gradient(ellipse 85% 85% at 50% 50%, black 20%, transparent 100%);
+      -webkit-mask-image: radial-gradient(ellipse 85% 85% at 50% 50%, black 20%, transparent 100%);
+    }
+
+    .container {
+      width: 100%; max-width: 520px;
+      position: relative; z-index: 1;
+      animation: fadeIn 0.45s ease;
+    }
+
+    /* ── Header ── */
+    .page-header { margin-bottom: 22px; }
+    .back-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: #475569; text-decoration: none; font-size: 0.84em;
+      padding: 7px 14px; border-radius: 20px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.09);
+      transition: all 0.25s ease; margin-bottom: 16px;
+    }
+    .back-btn:hover { color: #e2e8f0; background: rgba(255,255,255,0.09); }
+
+    h2 {
+      font-size: 1.65em; font-weight: 700;
+      background: linear-gradient(140deg, #c7d2fe 0%, #f1f5f9 55%, #a5b4fc 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      margin-bottom: 6px;
+    }
+    .instruction { font-size: 0.82em; color: #334155; line-height: 1.65; }
+
+    /* ── Steps ── */
+    .step-track {
+      display: flex; gap: 10px; margin: 18px 0 20px;
+    }
+    .step-card {
+      flex: 1; padding: 12px 8px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      transition: all 0.35s ease;
+    }
+    .step-num {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #334155;
+      transition: all 0.35s ease;
+    }
+    .step-name {
+      font-size: 0.7em; color: #334155; font-weight: 500; text-align: center;
+      transition: color 0.3s ease;
+    }
+    .step-card.active {
+      background: rgba(99,102,241,0.1);
+      border-color: rgba(99,102,241,0.35);
+      box-shadow: 0 4px 20px rgba(99,102,241,0.15);
+    }
+    .step-card.active .step-num {
+      background: rgba(99,102,241,0.25);
+      border-color: rgba(99,102,241,0.55);
+      color: #a5b4fc;
+      box-shadow: 0 0 14px rgba(99,102,241,0.35);
+    }
+    .step-card.active .step-name { color: #818cf8; }
+    .step-card.done {
+      background: rgba(16,185,129,0.08);
+      border-color: rgba(16,185,129,0.3);
+    }
+    .step-card.done .step-num {
+      background: rgba(16,185,129,0.2);
+      border-color: rgba(16,185,129,0.5);
+      color: #34d399;
+    }
+    .step-card.done .step-name { color: #34d399; }
+
+    /* ── Status ── */
+    #status {
+      font-size: 0.86em; color: #475569;
+      margin-bottom: 12px; min-height: 20px;
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+    }
+    .spinner {
+      width: 14px; height: 14px; flex-shrink: 0;
+      border: 2px solid rgba(99,102,241,0.25);
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    /* ── Video ── */
+    .video-wrapper {
+      position: relative; border-radius: 22px; overflow: hidden;
+      border: 1px solid rgba(99,102,241,0.3);
+      box-shadow: 0 0 40px rgba(99,102,241,0.12), 0 20px 50px rgba(0,0,0,0.4);
+      background: #050510;
+      width: 100%; max-width: 480px; margin: 0 auto;
+    }
+    video { width: 100%; display: block; transform: scaleX(-1); }
+
+    /* Flash overlay for capture */
+    .capture-flash {
+      position: absolute; inset: 0;
+      background: white;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.05s ease;
+      border-radius: 22px;
+    }
+    .capture-flash.flash { opacity: 0.85; }
+
+    /* Oval guide inside video */
+    .video-oval-wrap {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: none; z-index: 3;
+    }
+    .video-oval {
+      width: 44%; padding-bottom: 58%;
+      border: 2px dashed rgba(99,102,241,0.3);
+      border-radius: 50%;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.2);
+    }
+
+    /* ── Form ── */
+    .form-section {
+      margin-top: 20px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 20px; padding: 22px 20px;
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    }
+    .input-group { margin-bottom: 16px; }
+    .input-label {
+      display: block; font-size: 0.75em; font-weight: 600;
+      color: #475569; margin-bottom: 7px; letter-spacing: 0.05em; text-transform: uppercase;
+    }
+    .input-group input {
+      width: 100%; padding: 14px 16px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 14px; color: #e2e8f0;
+      font-size: 15px; font-family: 'Sarabun', sans-serif;
+      outline: none; transition: all 0.3s ease;
+    }
+    .input-group input::placeholder { color: #334155; }
+    .input-group input:focus {
+      border-color: rgba(99,102,241,0.55);
+      background: rgba(99,102,241,0.06);
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.13);
+    }
+
+    #btnSave {
+      width: 100%; padding: 15px;
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      color: white; border: none; border-radius: 50px;
+      font-size: 16px; font-weight: 600; font-family: 'Sarabun', sans-serif;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 24px rgba(99,102,241,0.3);
+    }
+    #btnSave:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 36px rgba(99,102,241,0.5); }
+    #btnSave:disabled { background: rgba(255,255,255,0.07); color: #334155; box-shadow: none; cursor: default; }
+
+    .count-badge {
+      background: rgba(255,255,255,0.15);
+      padding: 2px 10px; border-radius: 20px; font-size: 13px;
+    }
+    #btnSave:not(:disabled) .count-badge { background: rgba(255,255,255,0.22); }
+
+    /* Completion card */
+    .complete-card {
+      display: none;
+      margin-top: 18px; padding: 20px;
+      background: rgba(16,185,129,0.1);
+      border: 1px solid rgba(16,185,129,0.3);
+      border-radius: 18px; text-align: center;
+      animation: fadeIn 0.4s ease;
+    }
+    .complete-icon { font-size: 36px; margin-bottom: 10px; display: block; }
+    .complete-title { font-size: 1.1em; font-weight: 700; color: #34d399; margin-bottom: 4px; }
+    .complete-sub   { font-size: 0.82em; color: #10b981; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 28px; left: 50%;
+      transform: translateX(-50%) translateY(16px);
+      background: rgba(10,10,28,0.96);
+      border: 1px solid rgba(255,255,255,0.1);
+      backdrop-filter: blur(20px);
+      color: #e2e8f0; padding: 13px 24px; border-radius: 50px;
+      font-size: 0.88em; font-weight: 600; z-index: 9999; opacity: 0;
+      transition: all 0.38s cubic-bezier(0.34, 1.4, 0.64, 1);
+      white-space: nowrap; pointer-events: none;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+      max-width: calc(100vw - 40px); text-align: center;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast-success { border-color: rgba(16,185,129,0.45); color: #34d399; }
+    .toast-error   { border-color: rgba(239,68,68,0.45);  color: #fca5a5; }
+    .toast-warning { border-color: rgba(245,158,11,0.45); color: #fcd34d; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: translateY(0) } }
+    @keyframes spin   { to { transform: rotate(360deg) } }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="page-header">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <a href="index.html" class="back-btn">← กลับ</a>
+      <div id="userBadge" style="
+        display:none; align-items:center; gap:6px;
+        background:rgba(99,102,241,0.08);
+        border:1px solid rgba(99,102,241,0.25);
+        padding:5px 10px; border-radius:20px;
+      "></div>
+    </div>
+    <h2>👤 ลงทะเบียนใบหน้า</h2>
+    <p class="instruction">ถ่าย 3 ครั้ง: หน้าตรง → หันซ้ายเล็กน้อย → หันขวาเล็กน้อย</p>
+  </div>
+
+  <!-- Step track -->
+  <div class="step-track">
+    <div class="step-card" id="scard1">
+      <div class="step-num">1</div>
+      <span class="step-name">หน้าตรง</span>
+    </div>
+    <div class="step-card" id="scard2">
+      <div class="step-num">2</div>
+      <span class="step-name">หันซ้าย</span>
+    </div>
+    <div class="step-card" id="scard3">
+      <div class="step-num">3</div>
+      <span class="step-name">หันขวา</span>
+    </div>
+  </div>
+
+  <div id="status">
+    <span class="spinner"></span> กำลังโหลด AI Model...
+  </div>
+
+  <div class="video-wrapper">
+    <video id="video" autoplay muted playsinline></video>
+    <div class="video-oval-wrap"><div class="video-oval"></div></div>
+    <div class="capture-flash" id="captureFlash"></div>
+  </div>
+
+  <div class="form-section">
+    <div class="input-group">
+      <label class="input-label">ชื่อ-นามสกุลพนักงาน</label>
+      <input type="text" id="username" placeholder="เช่น สมชาย ใจดี">
+    </div>
+
+    <button id="btnSave" onclick="saveFace()" disabled>
+      📸 บันทึกใบหน้า <span id="saveCount" class="count-badge">0/3</span>
+    </button>
+
+    <div class="complete-card" id="completeCard">
+      <span class="complete-icon">🎉</span>
+      <div class="complete-title">ลงทะเบียนครบ 3 ครั้งแล้ว!</div>
+      <div class="complete-sub">ระบบจะจดจำใบหน้าได้แม่นยำยิ่งขึ้น</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Firebase แทน GAS — ไม่ต้องใช้ API_URL แล้ว
+  const video     = document.getElementById('video');
+  const statusDiv = document.getElementById('status');
+  const btnSave   = document.getElementById('btnSave');
+  let saveCounter = 0;
+
+  const STEPS = ['scard1','scard2','scard3'];
+
+  function toast(msg, type = 'info', dur = 3500) {
+    const el = document.createElement('div');
+    el.className = `toast toast-${type}`;
+    el.textContent = msg;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
+    setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 420); }, dur);
+  }
+
+  function updateSteps() {
+    STEPS.forEach((id, i) => {
+      const card = document.getElementById(id);
+      card.className = 'step-card';
+      if (i < saveCounter) card.classList.add('done');
+      else if (i === saveCounter) card.classList.add('active');
+    });
+  }
+  updateSteps();
+
+  window.addEventListener('load', async () => {
+    statusDiv.innerHTML = '<span class="spinner"></span> กำลังยืนยันตัวตน...';
+    const ok = await LiffAuth.init();
+    if (!ok) return;
+    renderUserBadge('userBadge');
+    initModels();
+  });
+
+  async function initModels() {
+    try {
+      const MODEL_URL = 'models';
+      await Promise.all([
+        faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+      ]);
+      startCamera();
+    } catch (e) {
+      statusDiv.innerHTML = `<span style="color:#f87171">❌ โหลด AI ล้มเหลว: ${e.message}</span>`;
+    }
+  }
+
+  function startCamera() {
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+      .then(stream => {
+        video.srcObject = stream;
+        statusDiv.innerHTML = '';
+        btnSave.disabled = false;
+        updateSteps();
+      })
+      .catch(err => {
+        statusDiv.innerHTML = `<span style="color:#f87171">❌ เปิดกล้องไม่ได้: ${err.message}</span>`;
+      });
+  }
+
+  async function saveFace() {
+    const name = document.getElementById('username').value.trim();
+    if (!name) { toast('กรุณาใส่ชื่อก่อน', 'warning'); return; }
+
+    btnSave.disabled = true;
+    btnSave.innerHTML = `⏳ กำลังประมวลผล... <span class="count-badge">${saveCounter}/3</span>`;
+
+    const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+    if (!detection) {
+      toast('ไม่พบใบหน้า กรุณามองกล้องให้ชัดเจน', 'warning');
+      btnSave.disabled = false;
+      btnSave.innerHTML = `📸 บันทึกใบหน้า <span class="count-badge" id="saveCount">${saveCounter}/3</span>`;
+      return;
+    }
+
+    // Capture flash effect
+    const flash = document.getElementById('captureFlash');
+    flash.classList.add('flash');
+    setTimeout(() => flash.classList.remove('flash'), 150);
+
+    try {
+      await DB.registerUser(name, detection.descriptor, LiffAuth.getUserId());
+      saveCounter++;
+      updateSteps();
+
+      if (saveCounter >= 3) {
+        btnSave.style.display = 'none';
+        document.getElementById('completeCard').style.display = 'block';
+        toast('🎉 ลงทะเบียนครบ 3 ครั้งแล้ว!', 'success', 4000);
+      } else {
+        const labels = ['', 'ครั้งที่ 1 ✓ — ตอนนี้หันซ้ายเล็กน้อย', 'ครั้งที่ 2 ✓ — ตอนนี้หันขวาเล็กน้อย'];
+        toast(labels[saveCounter] || 'บันทึกสำเร็จ', 'success');
+        btnSave.disabled = false;
+        btnSave.innerHTML = `📸 บันทึกเพิ่ม <span class="count-badge" id="saveCount">${saveCounter}/3</span>`;
+      }
+    } catch (e) {
+      toast('❌ บันทึกล้มเหลว: ' + e.message, 'error');
+      btnSave.disabled = false;
+      btnSave.innerHTML = `📸 บันทึกใบหน้า <span class="count-badge" id="saveCount">${saveCounter}/3</span>`;
+    }
+  }
+</script>
+</body>
+</html>

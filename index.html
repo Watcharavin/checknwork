@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ระบบบันทึกเวลาเข้างาน</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/db.js"></script>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="js/liff-auth.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Sarabun', sans-serif;
+      min-height: 100vh;
+      background: #07071a;
+      color: #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 20px 56px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Layered ambient glow */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 65% 45% at 10% 0%,   rgba(99,102,241,0.22) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 40% at 90% 95%,  rgba(16,185,129,0.16) 0%, transparent 52%),
+        radial-gradient(ellipse 40% 30% at 80% 10%,  rgba(139,92,246,0.10) 0%, transparent 48%),
+        radial-gradient(ellipse 60% 60% at 50% 50%,  rgba(15,15,40,0.6)   0%, transparent 100%);
+    }
+
+    /* Dot grid */
+    body::after {
+      content: '';
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image: radial-gradient(circle, rgba(255,255,255,0.032) 1px, transparent 1px);
+      background-size: 30px 30px;
+      mask-image: radial-gradient(ellipse 90% 90% at 50% 50%, black 30%, transparent 100%);
+      -webkit-mask-image: radial-gradient(ellipse 90% 90% at 50% 50%, black 30%, transparent 100%);
+    }
+
+    /* ── Top Bar ── */
+    .top-bar {
+      width: 100%; max-width: 390px;
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 28px;
+      position: relative; z-index: 1;
+      animation: fadeIn 0.4s ease;
+    }
+    .clock-wrap { line-height: 1.3; }
+    .clock-date { font-size: 0.72em; color: #2d3748; display: block; }
+    .clock-time { font-size: 0.9em; font-weight: 600; color: #475569; font-variant-numeric: tabular-nums; letter-spacing: 0.04em; }
+
+    .api-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 11px; border-radius: 20px;
+      font-size: 0.72em; font-weight: 600;
+      background: rgba(16,185,129,0.1);
+      border: 1px solid rgba(16,185,129,0.28);
+      color: #34d399;
+      transition: all 0.3s ease;
+    }
+    .api-badge.offline {
+      background: rgba(239,68,68,0.1);
+      border-color: rgba(239,68,68,0.28);
+      color: #f87171;
+    }
+    .badge-dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 5px currentColor;
+      animation: dotBlink 2.4s ease-in-out infinite;
+    }
+    .api-badge.offline .badge-dot { animation: none; opacity: 0.8; }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      position: relative; z-index: 1;
+      animation: fadeInDown 0.65s cubic-bezier(0.34, 1.15, 0.64, 1);
+    }
+    .logo-box {
+      width: 78px; height: 78px;
+      border-radius: 24px;
+      background: linear-gradient(145deg, rgba(99,102,241,0.2), rgba(79,70,229,0.08));
+      border: 1px solid rgba(99,102,241,0.32);
+      box-shadow:
+        0 0 0 5px rgba(99,102,241,0.07),
+        0 20px 50px rgba(0,0,0,0.35),
+        inset 0 1px 0 rgba(255,255,255,0.1);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 18px;
+      font-size: 36px;
+    }
+    h1 {
+      font-size: 1.8em; font-weight: 700; line-height: 1.2;
+      background: linear-gradient(140deg, #c7d2fe 0%, #f1f5f9 55%, #a5b4fc 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      font-size: 0.76em; color: #2d3748;
+      letter-spacing: 0.1em; text-transform: uppercase; font-weight: 500;
+    }
+
+    /* ── Warning ── */
+    .api-warning {
+      display: none;
+      align-items: center; gap: 10px;
+      background: rgba(245,158,11,0.08);
+      border: 1px solid rgba(245,158,11,0.28);
+      color: #fcd34d;
+      border-radius: 14px;
+      padding: 12px 16px;
+      width: 100%; max-width: 390px;
+      margin-bottom: 20px;
+      font-size: 0.84em;
+      position: relative; z-index: 1;
+      animation: fadeIn 0.5s ease;
+    }
+    .api-warning a { color: #fbbf24; font-weight: 700; text-decoration: none; }
+    .api-warning a:hover { text-decoration: underline; }
+
+    /* ── Menu Cards ── */
+    .menu-cards {
+      width: 100%; max-width: 390px;
+      display: flex; flex-direction: column;
+      gap: 12px;
+      position: relative; z-index: 1;
+    }
+
+    .btn-menu {
+      display: flex; align-items: center; gap: 16px;
+      padding: 18px 20px;
+      text-decoration: none;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.038);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: #e2e8f0;
+      transition: transform 0.28s cubic-bezier(0.34,1.2,0.64,1),
+                  background 0.25s ease,
+                  border-color 0.25s ease,
+                  box-shadow 0.25s ease;
+      animation: fadeInUp 0.52s ease both;
+      position: relative; overflow: hidden;
+    }
+    .btn-menu:nth-child(1) { animation-delay: 0.08s; }
+    .btn-menu:nth-child(2) { animation-delay: 0.16s; }
+    .btn-menu:nth-child(3) { animation-delay: 0.24s; }
+
+    /* Shimmer sweep */
+    .btn-menu::before {
+      content: '';
+      position: absolute; top: 0; left: -100%; width: 55%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.045), transparent);
+      transition: left 0.55s ease;
+      pointer-events: none;
+    }
+    .btn-menu:hover::before { left: 160%; }
+
+    /* Left accent bar */
+    .btn-menu .accent {
+      position: absolute; left: 0; top: 22%; bottom: 22%;
+      width: 3px; border-radius: 0 3px 3px 0;
+      opacity: 0;
+      transition: opacity 0.28s ease;
+    }
+    .btn-register .accent { background: linear-gradient(180deg, #818cf8, #6366f1); }
+    .btn-scan     .accent { background: linear-gradient(180deg, #34d399, #10b981); }
+    .btn-leave    .accent { background: linear-gradient(180deg, #f472b6, #ec4899); }
+    .btn-leave:hover {
+      background: rgba(236,72,153,0.07);
+      border-color: rgba(236,72,153,0.32);
+      box-shadow: 0 14px 48px rgba(236,72,153,0.18);
+    }
+    .btn-leave .card-icon {
+      background: rgba(236,72,153,0.14); border: 1px solid rgba(236,72,153,0.24);
+      box-shadow: 0 4px 16px rgba(236,72,153,0.15);
+    }
+    .btn-dash     .accent { background: linear-gradient(180deg, #38bdf8, #0ea5e9); }
+    .btn-dash:hover {
+      background: rgba(14,165,233,0.07);
+      border-color: rgba(14,165,233,0.32);
+      box-shadow: 0 14px 48px rgba(14,165,233,0.18);
+    }
+    .btn-dash .card-icon {
+      background: rgba(14,165,233,0.14); border: 1px solid rgba(14,165,233,0.24);
+      box-shadow: 0 4px 16px rgba(14,165,233,0.15);
+    }
+    .btn-report   .accent { background: linear-gradient(180deg, #f59e0b, #d97706); }
+    .btn-report:hover {
+      background: rgba(245,158,11,0.07);
+      border-color: rgba(245,158,11,0.32);
+      box-shadow: 0 14px 48px rgba(245,158,11,0.18);
+    }
+    .btn-report .card-icon {
+      background: rgba(245,158,11,0.14); border: 1px solid rgba(245,158,11,0.24);
+      box-shadow: 0 4px 16px rgba(245,158,11,0.15);
+    }
+    .btn-config   .accent { background: linear-gradient(180deg, #94a3b8, #64748b); }
+    .btn-menu:hover .accent { opacity: 1; }
+
+    .btn-menu:hover { transform: translateY(-3px); }
+    .btn-register:hover {
+      background: rgba(99,102,241,0.07);
+      border-color: rgba(99,102,241,0.32);
+      box-shadow: 0 14px 48px rgba(99,102,241,0.2);
+    }
+    .btn-scan:hover {
+      background: rgba(16,185,129,0.07);
+      border-color: rgba(16,185,129,0.32);
+      box-shadow: 0 14px 48px rgba(16,185,129,0.18);
+    }
+    .btn-config:hover {
+      background: rgba(71,85,105,0.07);
+      border-color: rgba(100,116,139,0.26);
+      box-shadow: 0 14px 48px rgba(71,85,105,0.14);
+    }
+
+    .card-icon {
+      width: 50px; height: 50px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; flex-shrink: 0;
+    }
+    .btn-register .card-icon {
+      background: rgba(99,102,241,0.14); border: 1px solid rgba(99,102,241,0.24);
+      box-shadow: 0 4px 16px rgba(99,102,241,0.15);
+    }
+    .btn-scan .card-icon {
+      background: rgba(16,185,129,0.14); border: 1px solid rgba(16,185,129,0.24);
+      box-shadow: 0 4px 16px rgba(16,185,129,0.15);
+    }
+    .btn-config .card-icon {
+      background: rgba(71,85,105,0.2); border: 1px solid rgba(71,85,105,0.28);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    }
+
+    .card-text { flex: 1; text-align: left; }
+    .card-title { font-size: 1em; font-weight: 600; color: #f1f5f9; margin-bottom: 3px; }
+    .card-desc  { font-size: 0.77em; color: #334155; }
+
+    .card-arrow {
+      font-size: 22px; color: #1e293b;
+      transition: transform 0.28s ease, color 0.28s ease;
+    }
+    .btn-menu:hover .card-arrow { transform: translateX(5px); color: #64748b; }
+
+    /* ── Footer ── */
+    .footer {
+      margin-top: 48px;
+      font-size: 0.68em; color: #1a2035;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      position: relative; z-index: 1;
+      animation: fadeIn 1s ease 0.5s both;
+    }
+
+    /* ── Animations ── */
+    @keyframes fadeIn     { from { opacity: 0 }                          to { opacity: 1 } }
+    @keyframes fadeInDown { from { opacity: 0; transform: translateY(-22px) } to { opacity: 1; transform: translateY(0) } }
+    @keyframes fadeInUp   { from { opacity: 0; transform: translateY(22px)  } to { opacity: 1; transform: translateY(0) } }
+    @keyframes dotBlink   { 0%,100% { opacity: 1 } 50% { opacity: 0.35 } }
+  </style>
+</head>
+<body>
+
+  <!-- Top bar -->
+  <div class="top-bar">
+    <div class="clock-wrap">
+      <span class="clock-date" id="clockDate"></span>
+      <span class="clock-time" id="clockTime">--:--:--</span>
+    </div>
+    <!-- LINE user badge (แสดงหลัง login) -->
+    <div id="userBadge" style="
+      display:none; align-items:center; gap:7px;
+      background:rgba(255,255,255,0.05);
+      border:1px solid rgba(255,255,255,0.09);
+      padding:5px 10px; border-radius:20px;
+    "></div>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-box">🏢</div>
+    <h1>ระบบบันทึกเวลาเข้างาน</h1>
+    <p class="subtitle">Face Recognition &amp; GPS Attendance</p>
+  </div>
+
+  <!-- Menu -->
+  <div class="menu-cards">
+    <!-- ปุ่มนี้ทุกคนเห็น -->
+    <a href="dashboard.html" class="btn-menu btn-dash">
+      <span class="accent"></span>
+      <div class="card-icon">📅</div>
+      <div class="card-text">
+        <div class="card-title">การเข้างานของฉัน</div>
+        <div class="card-desc">ดู KPI และประวัติเช็คอิน</div>
+      </div>
+      <span class="card-arrow">›</span>
+    </a>
+
+    <a href="scan.html" class="btn-menu btn-scan">
+      <span class="accent"></span>
+      <div class="card-icon">📷</div>
+      <div class="card-text">
+        <div class="card-title">สแกนเข้างาน</div>
+        <div class="card-desc">ยืนยันตัวตนด้วยใบหน้า + GPS</div>
+      </div>
+      <span class="card-arrow">›</span>
+    </a>
+
+    <a href="leave.html" class="btn-menu btn-leave">
+      <span class="accent"></span>
+      <div class="card-icon">🏖️</div>
+      <div class="card-text">
+        <div class="card-title">ขอวันลา</div>
+        <div class="card-desc">ลาป่วย ลากิจ ลาพักร้อน</div>
+      </div>
+      <span class="card-arrow">›</span>
+    </a>
+
+    <!-- ปุ่มด้านล่างนี้แสดงเฉพาะ Admin -->
+    <a href="register.html" class="btn-menu btn-register">
+      <span class="accent"></span>
+      <div class="card-icon">👤</div>
+      <div class="card-text">
+        <div class="card-title">ลงทะเบียนพนักงาน</div>
+        <div class="card-desc">บันทึกข้อมูลใบหน้าใหม่</div>
+      </div>
+      <span class="card-arrow">›</span>
+    </a>
+
+    <a href="report.html" class="btn-menu btn-report admin-only" style="display:none">
+      <span class="accent"></span>
+      <div class="card-icon">📊</div>
+      <div class="card-text">
+        <div class="card-title">รายงาน KPI</div>
+        <div class="card-desc">สรุปการเข้างานรายบุคคล</div>
+      </div>
+      <span class="card-arrow">›</span>
+    </a>
+
+    <a href="config.html" class="btn-menu btn-config admin-only" style="display:none">
+      <span class="accent"></span>
+      <div class="card-icon">⚙️</div>
+      <div class="card-text">
+        <div class="card-title">ตั้งค่าระบบ</div>
+        <div class="card-desc">จัดการ GPS และ API (Admin)</div>
+      </div>
+      <span class="card-arrow">›</span>
+    </a>
+  </div>
+
+  <p class="footer">Attendance System &nbsp;·&nbsp; v2.0</p>
+
+<script>
+  // ── Live clock ──
+  function tick() {
+    const now = new Date();
+    document.getElementById('clockTime').textContent =
+      now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    document.getElementById('clockDate').textContent =
+      now.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short', year: '2-digit' });
+  }
+  tick(); setInterval(tick, 1000);
+
+  // ── LINE Auth ──
+  window.addEventListener('load', async () => {
+    const ok = await LiffAuth.init();
+    if (!ok) return; // กำลัง redirect ไป LINE Login
+    renderUserBadge('userBadge');
+
+    // ตรวจสิทธิ์ admin — ถ้าใช่ให้แสดงปุ่ม admin
+    const isAdmin = await DB.isAdmin(LiffAuth.getUserId());
+    if (isAdmin) {
+      document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'flex');
+    }
+  });
+</script>
+</body>
+</html>

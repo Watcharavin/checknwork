@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>เข้าสู่ระบบ</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="js/api-config.js"></script>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="js/liff-auth.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Sarabun', sans-serif;
+      min-height: 100vh;
+      background: #07071a;
+      color: #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Ambient glow */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 60% 50% at 15% 10%,  rgba(99,102,241,0.22) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 45% at 85% 90%,  rgba(16,185,129,0.16) 0%, transparent 52%),
+        radial-gradient(ellipse 40% 35% at 80% 15%,  rgba(139,92,246,0.10) 0%, transparent 48%);
+    }
+
+    /* Dot grid */
+    body::after {
+      content: '';
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 30px 30px;
+      mask-image: radial-gradient(ellipse 90% 90% at 50% 50%, black 30%, transparent 100%);
+      -webkit-mask-image: radial-gradient(ellipse 90% 90% at 50% 50%, black 30%, transparent 100%);
+    }
+
+    .wrap {
+      position: relative; z-index: 1;
+      width: 100%; max-width: 360px;
+      display: flex; flex-direction: column; align-items: center;
+      animation: fadeInUp 0.55s cubic-bezier(0.34, 1.1, 0.64, 1);
+    }
+
+    /* ── App icon ── */
+    .app-icon {
+      width: 88px; height: 88px;
+      border-radius: 26px;
+      background: linear-gradient(145deg, rgba(99,102,241,0.22), rgba(79,70,229,0.08));
+      border: 1px solid rgba(99,102,241,0.35);
+      box-shadow:
+        0 0 0 6px rgba(99,102,241,0.07),
+        0 24px 60px rgba(0,0,0,0.4),
+        inset 0 1px 0 rgba(255,255,255,0.1);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 42px;
+      margin-bottom: 22px;
+    }
+
+    /* ── Title ── */
+    h1 {
+      font-size: 1.75em; font-weight: 700; line-height: 1.2;
+      background: linear-gradient(140deg, #c7d2fe 0%, #f1f5f9 55%, #a5b4fc 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-align: center; margin-bottom: 6px;
+    }
+    .subtitle {
+      font-size: 0.78em; color: #334155;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      text-align: center; margin-bottom: 40px;
+    }
+
+    /* ── Card ── */
+    .card {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 24px;
+      padding: 28px 24px 24px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      margin-bottom: 20px;
+    }
+
+    .card-label {
+      font-size: 0.75em; font-weight: 600;
+      color: #334155; letter-spacing: 0.08em;
+      text-transform: uppercase; text-align: center;
+      margin-bottom: 18px;
+    }
+
+    /* ── LINE Login button ── */
+    .btn-line {
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      width: 100%; padding: 16px 20px;
+      background: #06C755;
+      border: none; border-radius: 50px;
+      color: white; font-size: 17px; font-weight: 700;
+      font-family: 'Sarabun', sans-serif;
+      cursor: pointer;
+      box-shadow: 0 6px 28px rgba(6,199,85,0.38);
+      transition: all 0.28s ease;
+      position: relative; overflow: hidden;
+    }
+    .btn-line::before {
+      content: '';
+      position: absolute; top: 0; left: -100%; width: 55%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+      transition: left 0.5s ease;
+    }
+    .btn-line:hover::before { left: 160%; }
+    .btn-line:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 40px rgba(6,199,85,0.55);
+    }
+    .btn-line:active { transform: translateY(0); }
+    .btn-line:disabled {
+      background: rgba(255,255,255,0.07);
+      color: #334155; box-shadow: none;
+      cursor: default; transform: none;
+    }
+
+    /* LINE logo SVG */
+    .line-logo {
+      width: 26px; height: 26px; flex-shrink: 0;
+    }
+
+    /* ── Status / Loading ── */
+    #statusMsg {
+      font-size: 0.82em; color: #475569;
+      text-align: center; min-height: 20px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .spinner {
+      width: 15px; height: 15px; flex-shrink: 0;
+      border: 2px solid rgba(99,102,241,0.2);
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    /* ── Footer note ── */
+    .note {
+      font-size: 0.72em; color: #1e293b;
+      text-align: center; line-height: 1.65;
+      margin-top: 8px;
+    }
+
+    /* ── Version ── */
+    .ver {
+      position: fixed; bottom: 20px;
+      font-size: 0.65em; color: #1a2035;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      z-index: 1;
+    }
+
+    /* ── Animations ── */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(24px) }
+      to   { opacity: 1; transform: translateY(0) }
+    }
+    @keyframes spin { to { transform: rotate(360deg) } }
+  </style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <div class="app-icon">🏢</div>
+  <h1>ระบบบันทึกเวลา</h1>
+  <p class="subtitle">Face Recognition &amp; GPS Attendance</p>
+
+  <div class="card">
+    <p class="card-label">เข้าสู่ระบบด้วย</p>
+
+    <button class="btn-line" id="btnLogin" onclick="loginWithLine()" disabled>
+      <!-- LINE Logo -->
+      <svg class="line-logo" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
+        <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63h2.386c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63.349 0 .631.285.631.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.281.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/>
+      </svg>
+      เข้าสู่ระบบด้วย LINE
+    </button>
+
+    <div id="statusMsg" style="margin-top:16px">
+      <span class="spinner"></span> กำลังตรวจสอบ...
+    </div>
+  </div>
+
+  <p class="note">ระบบใช้ LINE เพื่อยืนยันตัวตนพนักงาน<br>ข้อมูลของคุณจะไม่ถูกแชร์กับบุคคลภายนอก</p>
+
+</div>
+
+<p class="ver">Attendance System · v2.0</p>
+
+<script>
+  const statusMsg = document.getElementById('statusMsg');
+  const btnLogin  = document.getElementById('btnLogin');
+
+  window.addEventListener('load', async () => {
+    try {
+      await liff.init({ liffId: LIFF_ID });
+
+      if (liff.isLoggedIn()) {
+        // Login อยู่แล้ว — เข้าแอปเลย
+        statusMsg.innerHTML = '<span class="spinner"></span> กำลังเข้าสู่ระบบ...';
+        window.location.replace('index.html');
+        return;
+      }
+
+      // ยังไม่ได้ login — แสดงปุ่ม
+      statusMsg.textContent = '';
+      btnLogin.disabled = false;
+
+    } catch (e) {
+      statusMsg.innerHTML = `<span style="color:#f87171">❌ เริ่มต้น LIFF ไม่ได้: ${_escHtml(e.message)}</span>`;
+    }
+  });
+
+  function loginWithLine() {
+    btnLogin.disabled = true;
+    statusMsg.innerHTML = '<span class="spinner"></span> กำลังเชื่อมต่อ LINE...';
+    // หลัง login สำเร็จ LINE จะ redirect กลับมาที่หน้านี้
+    // แล้ว isLoggedIn() = true → redirect ไป index.html อัตโนมัติ
+    liff.login({ redirectUri: window.location.href });
+  }
+</script>
+
+</body>
+</html>

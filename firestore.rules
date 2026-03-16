@@ -1,0 +1,37 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // admins: อ่านได้ทุกคน (เพื่อตรวจสิทธิ์) | เขียนผ่าน Firebase Console เท่านั้น
+    match /admins/{userId} {
+      allow read:  if true;
+      allow write: if false;
+    }
+
+    // config: อ่านได้ทุกคน | เขียนได้เฉพาะ Admin
+    match /config/{doc} {
+      allow read:  if true;
+      allow write: if exists(/databases/$(database)/documents/admins/$(request.resource.data.updatedBy));
+    }
+
+    // users (face data): อ่านได้ทุกคน | เขียนได้ทุกคน (self-register)
+    match /users/{doc} {
+      allow read:  if true;
+      allow write: if true;
+    }
+
+    // attendance: อ่านและเขียนได้ทุกคน (พนักงานเช็คอิน)
+    match /attendance/{doc} {
+      allow read:   if true;
+      allow create: if true;
+    }
+
+    // leaves: ทุกคนอ่าน/สร้าง/แก้ได้ (ตรวจสิทธิ์ฝั่ง client ผ่าน LINE LIFF)
+    match /leaves/{doc} {
+      allow read:   if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if false;
+    }
+  }
+}

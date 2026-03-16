@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ขอวันลา</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/db.js"></script>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="js/liff-auth.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Sarabun', sans-serif;
+      min-height: 100vh; background: #07071a; color: #e2e8f0;
+      padding: 24px 16px 60px; position: relative;
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 55% 40% at 5% 5%,   rgba(99,102,241,0.16) 0%, transparent 55%),
+        radial-gradient(ellipse 45% 35% at 95% 90%,  rgba(16,185,129,0.10) 0%, transparent 52%);
+    }
+    .container { width: 100%; max-width: 500px; margin: 0 auto; position: relative; z-index: 1; }
+
+    .header-row {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;
+    }
+    .back-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: #475569; text-decoration: none; font-size: 0.84em;
+      padding: 7px 14px; border-radius: 20px;
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);
+      transition: all 0.25s;
+    }
+    .back-btn:hover { color: #e2e8f0; background: rgba(255,255,255,0.09); }
+
+    h2 {
+      font-size: 1.55em; font-weight: 700;
+      background: linear-gradient(140deg, #c7d2fe 0%, #f1f5f9 55%, #a5b4fc 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      margin-bottom: 4px;
+    }
+    .page-subtitle { font-size: 0.82em; color: #334155; margin-bottom: 20px; }
+
+    /* Tabs */
+    .tabs {
+      display: flex; gap: 4px;
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px; padding: 4px; margin-bottom: 20px; width: fit-content;
+    }
+    .tab {
+      padding: 7px 18px; border-radius: 9px; cursor: pointer;
+      font-size: 0.85em; font-weight: 600; color: #475569;
+      transition: all 0.22s; border: none; background: none; font-family: 'Sarabun', sans-serif;
+    }
+    .tab.active { background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.35); color: #a5b4fc; }
+
+    /* Card */
+    .card {
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 20px; padding: 20px; margin-bottom: 14px;
+    }
+
+    /* Form */
+    .field { margin-bottom: 16px; }
+    label {
+      display: block; font-size: 0.75em; font-weight: 600;
+      color: #475569; margin-bottom: 7px; letter-spacing: 0.05em; text-transform: uppercase;
+    }
+    input, select, textarea {
+      width: 100%; padding: 12px 14px;
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px; color: #e2e8f0; font-size: 14px;
+      font-family: 'Sarabun', sans-serif; outline: none; transition: all 0.25s;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: rgba(99,102,241,0.5); background: rgba(99,102,241,0.06);
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+    }
+    select option { background: #1e1e3a; }
+    textarea { resize: vertical; min-height: 80px; }
+    input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.6); }
+
+    .input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* Leave type pills */
+    .type-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .type-pill {
+      padding: 10px 6px; border-radius: 12px; cursor: pointer; text-align: center;
+      font-size: 0.82em; font-weight: 600; border: 1.5px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04); color: #475569; transition: all 0.2s;
+    }
+    .type-pill.selected-sick     { background: rgba(239,68,68,0.15);   border-color: rgba(239,68,68,0.4);   color: #f87171; }
+    .type-pill.selected-personal { background: rgba(99,102,241,0.15);  border-color: rgba(99,102,241,0.4);  color: #a5b4fc; }
+    .type-pill.selected-annual   { background: rgba(16,185,129,0.15);  border-color: rgba(16,185,129,0.4);  color: #34d399; }
+    .type-pill .pill-icon { font-size: 1.4em; display: block; margin-bottom: 4px; }
+
+    /* Submit btn */
+    .btn-submit {
+      width: 100%; padding: 14px; border: none; border-radius: 50px; cursor: pointer;
+      font-size: 15px; font-weight: 700; font-family: 'Sarabun', sans-serif;
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      color: white; box-shadow: 0 4px 22px rgba(99,102,241,0.35);
+      transition: all 0.25s;
+    }
+    .btn-submit:hover { box-shadow: 0 8px 36px rgba(99,102,241,0.5); transform: translateY(-2px); }
+    .btn-submit:disabled { background: rgba(255,255,255,0.07); color: #334155; box-shadow: none; transform: none; cursor: default; }
+
+    /* Leave list */
+    .leave-item {
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px; padding: 14px 16px; margin-bottom: 10px;
+      animation: fadeIn 0.35s ease;
+    }
+    .leave-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+    .leave-type { font-weight: 700; font-size: 0.95em; }
+    .leave-dates { font-size: 0.82em; color: #64748b; margin-top: 4px; }
+    .leave-reason { font-size: 0.82em; color: #475569; margin-top: 6px; }
+
+    .status-badge {
+      display: inline-block; padding: 4px 12px; border-radius: 20px;
+      font-size: 0.75em; font-weight: 700; flex-shrink: 0;
+    }
+    .status-pending  { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.35); }
+    .status-approved { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.35); }
+    .status-rejected { background: rgba(239,68,68,0.15);  color: #f87171; border: 1px solid rgba(239,68,68,0.35); }
+
+    .type-sick     { color: #f87171; }
+    .type-personal { color: #a5b4fc; }
+    .type-annual   { color: #34d399; }
+
+    .empty { text-align: center; padding: 40px; color: #334155; font-size: 0.88em; }
+    .loading { text-align: center; padding: 32px; color: #334155; }
+    .spinner-sm {
+      display: inline-block; width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.1); border-top-color: #6366f1;
+      border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 6px;
+    }
+    @keyframes spin    { to { transform: rotate(360deg); } }
+    @keyframes fadeIn  { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 28px; left: 50%;
+      transform: translateX(-50%) translateY(16px);
+      background: rgba(10,10,28,0.96); border: 1px solid rgba(255,255,255,0.1);
+      backdrop-filter: blur(20px); color: #e2e8f0; padding: 12px 22px; border-radius: 50px;
+      font-size: 0.88em; font-weight: 600; z-index: 9999; opacity: 0;
+      transition: all 0.38s cubic-bezier(0.34,1.4,0.64,1);
+      white-space: nowrap; pointer-events: none; box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast-success { border-color: rgba(16,185,129,0.45); color: #34d399; }
+    .toast-error   { border-color: rgba(239,68,68,0.45);  color: #fca5a5; }
+    .toast-warning { border-color: rgba(245,158,11,0.45); color: #fcd34d; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header-row">
+    <a href="index.html" class="back-btn">← กลับ</a>
+    <div id="userBadge" style="display:none;align-items:center;gap:6px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.09);padding:5px 10px;border-radius:20px;"></div>
+  </div>
+
+  <h2>🏖️ วันลา</h2>
+  <p class="page-subtitle">ขอวันหยุดและติดตามสถานะการอนุมัติ</p>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('request', this)">ขอวันลา</button>
+    <button class="tab" onclick="switchTab('history', this)">ประวัติการลา</button>
+  </div>
+
+  <!-- Request Tab -->
+  <div id="tab-request">
+    <div class="card">
+
+      <div class="field">
+        <label>ประเภทการลา</label>
+        <div class="type-grid">
+          <div class="type-pill" id="pill-sick" onclick="selectType('sick')">
+            <span class="pill-icon">🤒</span>ลาป่วย
+          </div>
+          <div class="type-pill" id="pill-personal" onclick="selectType('personal')">
+            <span class="pill-icon">📋</span>ลากิจ
+          </div>
+          <div class="type-pill" id="pill-annual" onclick="selectType('annual')">
+            <span class="pill-icon">🏖️</span>ลาพักร้อน
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>วันที่เริ่มลา</label>
+        <input type="date" id="startDate">
+      </div>
+      <div class="field">
+        <label>วันที่สุดท้าย</label>
+        <input type="date" id="endDate">
+      </div>
+
+      <div class="field">
+        <label>เหตุผล (ถ้ามี)</label>
+        <textarea id="reason" placeholder="ระบุเหตุผลการลา..."></textarea>
+      </div>
+
+      <button class="btn-submit" id="btnSubmit" onclick="submitLeave()">
+        📨 ส่งคำขอลา
+      </button>
+    </div>
+  </div>
+
+  <!-- History Tab -->
+  <div id="tab-history" style="display:none">
+    <div id="historyContent">
+      <div class="loading"><span class="spinner-sm"></span>กำลังโหลด...</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let selectedType = null;
+  let myName = null;
+
+  function toast(msg, type = 'info', dur = 3500) {
+    const el = document.createElement('div');
+    el.className = `toast toast-${type}`;
+    el.textContent = msg;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
+    setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 420); }, dur);
+  }
+
+  window.addEventListener('load', async () => {
+    const ok = await LiffAuth.init();
+    if (!ok) return;
+    renderUserBadge('userBadge');
+
+    // หาชื่อพนักงานจาก users collection
+    const db = firebase.firestore();
+    const snap = await db.collection('users')
+      .where('registeredBy', '==', LiffAuth.getUserId()).get();
+    if (!snap.empty) myName = snap.docs[snap.docs.length - 1].data().name;
+
+    // ตั้ง default วันที่เป็นวันนี้
+    const today = new Date().toISOString().slice(0, 10);
+    document.getElementById('startDate').value = today;
+    document.getElementById('endDate').value   = today;
+  });
+
+  function selectType(type) {
+    selectedType = type;
+    ['sick', 'personal', 'annual'].forEach(t => {
+      const el = document.getElementById('pill-' + t);
+      el.className = 'type-pill' + (t === type ? ' selected-' + t : '');
+    });
+  }
+
+  async function submitLeave() {
+    if (!selectedType) { toast('กรุณาเลือกประเภทการลา', 'warning'); return; }
+    const startDate = document.getElementById('startDate').value;
+    const endDate   = document.getElementById('endDate').value;
+    const reason    = document.getElementById('reason').value.trim();
+
+    if (!startDate || !endDate) { toast('กรุณาเลือกวันที่', 'warning'); return; }
+    if (endDate < startDate)    { toast('วันสุดท้ายต้องไม่ก่อนวันเริ่ม', 'warning'); return; }
+
+    if (!myName) { toast('ไม่พบข้อมูลพนักงาน กรุณาลงทะเบียนใบหน้าก่อน', 'warning'); return; }
+
+    const btn = document.getElementById('btnSubmit');
+    btn.disabled = true; btn.textContent = '⏳ กำลังส่ง...';
+
+    try {
+      await DB.requestLeave(LiffAuth.getUserId(), myName, selectedType, startDate, endDate, reason);
+      toast('✅ ส่งคำขอลาเรียบร้อย รอ Admin อนุมัติ', 'success', 4000);
+      document.getElementById('reason').value = '';
+      selectedType = null;
+      ['sick', 'personal', 'annual'].forEach(t => {
+        document.getElementById('pill-' + t).className = 'type-pill';
+      });
+    } catch (e) {
+      toast('❌ ส่งไม่ได้: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = '📨 ส่งคำขอลา';
+    }
+  }
+
+  async function loadHistory() {
+    document.getElementById('historyContent').innerHTML =
+      '<div class="loading"><span class="spinner-sm"></span>กำลังโหลด...</div>';
+    try {
+      const leaves = await DB.getMyLeaves(LiffAuth.getUserId());
+      if (!leaves.length) {
+        document.getElementById('historyContent').innerHTML =
+          '<div class="empty">ยังไม่มีประวัติการลา</div>';
+        return;
+      }
+      document.getElementById('historyContent').innerHTML =
+        leaves.map(l => leaveCard(l)).join('');
+    } catch (e) {
+      document.getElementById('historyContent').innerHTML =
+        `<div class="empty" style="color:#f87171">โหลดไม่ได้: ${e.message}</div>`;
+    }
+  }
+
+  function leaveCard(l) {
+    const typeLabel = { sick: '🤒 ลาป่วย', personal: '📋 ลากิจ', annual: '🏖️ ลาพักร้อน' };
+    const typeClass = { sick: 'type-sick', personal: 'type-personal', annual: 'type-annual' };
+    const statusLabel = { pending: '⏳ รออนุมัติ', approved: '✅ อนุมัติแล้ว', rejected: '❌ ไม่อนุมัติ' };
+    const days = daysBetween(l.startDate, l.endDate);
+    return `
+      <div class="leave-item">
+        <div class="leave-top">
+          <span class="leave-type ${typeClass[l.type] || ''}">${typeLabel[l.type] || l.type}</span>
+          <span class="status-badge status-${l.status}">${statusLabel[l.status] || l.status}</span>
+        </div>
+        <div class="leave-dates">📅 ${formatDate(l.startDate)} – ${formatDate(l.endDate)} (${days} วัน)</div>
+        ${l.reason ? `<div class="leave-reason">💬 ${_esc(l.reason)}</div>` : ''}
+      </div>`;
+  }
+
+  function switchTab(name, btn) {
+    document.getElementById('tab-request').style.display = name === 'request' ? 'block' : 'none';
+    document.getElementById('tab-history').style.display = name === 'history' ? 'block' : 'none';
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    if (name === 'history') loadHistory();
+  }
+
+  function daysBetween(a, b) {
+    const diff = new Date(b) - new Date(a);
+    return Math.max(1, Math.round(diff / 86400000) + 1);
+  }
+  function formatDate(str) {
+    if (!str) return '—';
+    const d = new Date(str);
+    return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
+  }
+  function _esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+</body>
+</html>

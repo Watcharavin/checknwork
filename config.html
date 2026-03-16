@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ตั้งค่าระบบ</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/db.js"></script>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="js/liff-auth.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Sarabun', sans-serif;
+      min-height: 100vh;
+      background: #07071a;
+      color: #e2e8f0;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 28px 16px 60px;
+      position: relative;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 60% 45% at 95% 5%,  rgba(6,182,212,0.14) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 40% at 5%  90%, rgba(99,102,241,0.1) 0%, transparent 52%);
+    }
+    body::after {
+      content: '';
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 30px 30px;
+      mask-image: radial-gradient(ellipse 85% 85% at 50% 50%, black 20%, transparent 100%);
+      -webkit-mask-image: radial-gradient(ellipse 85% 85% at 50% 50%, black 20%, transparent 100%);
+    }
+
+    .container {
+      width: 100%; max-width: 500px;
+      position: relative; z-index: 1;
+      animation: fadeIn 0.45s ease;
+    }
+
+    /* ── Header ── */
+    .page-header { margin-bottom: 24px; }
+    .back-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: #475569; text-decoration: none; font-size: 0.84em;
+      padding: 7px 14px; border-radius: 20px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.09);
+      transition: all 0.25s ease; margin-bottom: 14px;
+    }
+    .back-btn:hover { color: #e2e8f0; background: rgba(255,255,255,0.09); }
+
+    h2 {
+      font-size: 1.65em; font-weight: 700;
+      background: linear-gradient(140deg, #c7d2fe 0%, #f1f5f9 55%, #a5b4fc 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      margin-bottom: 5px;
+    }
+    .page-subtitle { font-size: 0.82em; color: #334155; }
+
+    /* ── Card ── */
+    .card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 22px; padding: 22px 20px;
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      margin-bottom: 14px;
+    }
+
+    .section-header {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 18px; padding-bottom: 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .section-icon {
+      width: 38px; height: 38px; border-radius: 11px;
+      display: flex; align-items: center; justify-content: center; font-size: 17px;
+    }
+    .section-icon.indigo { background: rgba(99,102,241,0.16); border: 1px solid rgba(99,102,241,0.25); }
+    .section-icon.cyan   { background: rgba(6,182,212,0.16);  border: 1px solid rgba(6,182,212,0.25);  }
+    .section-title-text { font-weight: 600; font-size: 0.95em; color: #c7d2fe; }
+
+    /* ── Inputs ── */
+    .field { margin-bottom: 16px; }
+    label {
+      display: block; font-size: 0.75em; font-weight: 600;
+      color: #475569; margin-bottom: 7px; letter-spacing: 0.05em; text-transform: uppercase;
+    }
+    input {
+      width: 100%; padding: 13px 15px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 14px; color: #e2e8f0;
+      font-size: 14px; font-family: 'Sarabun', sans-serif;
+      outline: none; transition: all 0.28s ease;
+    }
+    input::placeholder { color: #1e293b; }
+    input:focus {
+      border-color: rgba(99,102,241,0.5);
+      background: rgba(99,102,241,0.06);
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+    }
+    .note {
+      font-size: 0.76em; color: #334155;
+      margin-top: 6px; line-height: 1.55;
+    }
+
+    /* Coord display pill */
+    .coord-pill {
+      display: none;
+      align-items: center; gap: 8px;
+      background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.25);
+      border-radius: 12px; padding: 10px 14px;
+      margin-bottom: 14px;
+      font-size: 0.82em; color: #67e8f9;
+      animation: fadeIn 0.4s ease;
+    }
+    .coord-pill.visible { display: flex; }
+
+    .input-row {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      border: none; border-radius: 14px; cursor: pointer;
+      font-family: 'Sarabun', sans-serif; font-size: 15px; font-weight: 600;
+      padding: 13px; width: 100%;
+      transition: all 0.28s ease;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-get-loc {
+      background: linear-gradient(135deg, #0891b2, #06b6d4);
+      color: white; box-shadow: 0 4px 18px rgba(6,182,212,0.28);
+      margin-bottom: 14px;
+    }
+    .btn-get-loc:hover { box-shadow: 0 6px 28px rgba(6,182,212,0.45); transform: translateY(-1px); }
+    .btn-get-loc:disabled { background: rgba(255,255,255,0.07); color: #334155; box-shadow: none; cursor: default; transform: none; }
+
+    .btn-save {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: white; box-shadow: 0 4px 22px rgba(16,185,129,0.3);
+      font-size: 16px; padding: 15px; border-radius: 50px;
+    }
+    .btn-save:hover { box-shadow: 0 8px 36px rgba(16,185,129,0.5); transform: translateY(-2px); }
+    .btn-save:disabled { background: rgba(255,255,255,0.07); color: #334155; box-shadow: none; cursor: default; transform: none; border-radius: 50px; }
+
+    .btn-back {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 13px; width: 100%; border-radius: 14px;
+      background: transparent; border: 1px solid rgba(255,255,255,0.1);
+      color: #475569; font-size: 15px; font-weight: 600;
+      font-family: 'Sarabun', sans-serif; text-decoration: none; cursor: pointer;
+      transition: all 0.25s ease; margin-top: 10px;
+    }
+    .btn-back:hover { color: #e2e8f0; border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.04); }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 28px; left: 50%;
+      transform: translateX(-50%) translateY(16px);
+      background: rgba(10,10,28,0.96);
+      border: 1px solid rgba(255,255,255,0.1);
+      backdrop-filter: blur(20px);
+      color: #e2e8f0; padding: 13px 24px; border-radius: 50px;
+      font-size: 0.88em; font-weight: 600; z-index: 9999; opacity: 0;
+      transition: all 0.38s cubic-bezier(0.34, 1.4, 0.64, 1);
+      white-space: nowrap; pointer-events: none;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+      max-width: calc(100vw - 40px); text-align: center;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast-success { border-color: rgba(16,185,129,0.45); color: #34d399; }
+    .toast-error   { border-color: rgba(239,68,68,0.45);  color: #fca5a5; }
+    .toast-warning { border-color: rgba(245,158,11,0.45); color: #fcd34d; }
+    .toast-info    { border-color: rgba(99,102,241,0.45); color: #a5b4fc; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: translateY(0) } }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="page-header">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <a href="index.html" class="back-btn">← กลับ</a>
+      <div id="userBadge" style="
+        display:none; align-items:center; gap:6px;
+        background:rgba(99,102,241,0.08);
+        border:1px solid rgba(99,102,241,0.25);
+        padding:5px 10px; border-radius:20px;
+      "></div>
+    </div>
+    <h2>⚙️ ตั้งค่าระบบ</h2>
+    <p class="page-subtitle">จัดการ API และจุดเช็คอิน GPS</p>
+  </div>
+
+  <!-- GPS Config -->
+  <div class="card">
+    <div class="section-header">
+      <div class="section-icon cyan">📍</div>
+      <span class="section-title-text">จุดเช็คอิน GPS</span>
+    </div>
+
+    <button class="btn btn-get-loc" id="btnGetLoc" onclick="getCurrentLocation()">
+      📍 ดึงตำแหน่งปัจจุบันของฉัน
+    </button>
+
+    <div class="coord-pill" id="coordPill">
+      <span>📌</span>
+      <span id="coordText">--</span>
+    </div>
+
+    <div class="input-row">
+      <div class="field" style="margin-bottom:0">
+        <label>Latitude</label>
+        <input type="number" step="any" id="lat" placeholder="13.7563">
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>Longitude</label>
+        <input type="number" step="any" id="lng" placeholder="100.5018">
+      </div>
+    </div>
+    <div style="height:14px"></div>
+
+    <div class="field">
+      <label>รัศมีที่ยอมรับ (กิโลเมตร)</label>
+      <input type="number" step="0.01" id="radius" placeholder="เช่น 0.1 คือ 100 เมตร">
+      <p class="note">ใส่ 0 หากไม่ต้องการจำกัดพื้นที่</p>
+    </div>
+  </div>
+
+  <!-- Work Hours Config -->
+  <div class="card">
+    <div class="section-header">
+      <div class="section-icon indigo">🕐</div>
+      <span class="section-title-text">เวลาทำงาน</span>
+    </div>
+
+    <div class="input-row">
+      <div class="field" style="margin-bottom:0">
+        <label>เริ่มงาน</label>
+        <input type="time" id="checkinStart" value="08:00">
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>ถือว่าสาย</label>
+        <input type="time" id="lateAfter" value="09:00">
+      </div>
+    </div>
+    <div style="height:14px"></div>
+    <div class="field">
+      <label>เวลาออกงาน</label>
+      <input type="time" id="checkoutTime" value="18:00">
+    </div>
+  </div>
+
+  <!-- Save -->
+  <button class="btn btn-save" id="btnSave" onclick="saveAll()">
+    💾 บันทึกการตั้งค่าทั้งหมด
+  </button>
+
+  <a href="index.html" class="btn-back">← กลับเมนูหลัก</a>
+
+</div>
+
+<script>
+  function toast(msg, type = 'info', dur = 3500) {
+    const el = document.createElement('div');
+    el.className = `toast toast-${type}`;
+    el.textContent = msg;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
+    setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 420); }, dur);
+  }
+
+  window.onload = async function () {
+    // ตรวจ Admin ก่อนแสดงหน้า config
+    const ok = await LiffAuth.initAdmin();
+    if (!ok) return;
+    renderUserBadge('userBadge');
+
+    loadGpsConfig();
+    loadHoursConfig();
+  };
+
+  async function loadGpsConfig() {
+    try {
+      const cfg = await DB.getConfig();
+      document.getElementById('lat').value    = cfg.lat    || '';
+      document.getElementById('lng').value    = cfg.lng    || '';
+      document.getElementById('radius').value = cfg.radius || '0.5';
+      if (cfg.lat && cfg.lng) showCoordPill(cfg.lat, cfg.lng);
+    } catch (e) { /* ยังไม่มี config ก็ได้ */ }
+  }
+
+  function showCoordPill(lat, lng) {
+    const pill = document.getElementById('coordPill');
+    document.getElementById('coordText').textContent =
+      parseFloat(lat).toFixed(5) + ', ' + parseFloat(lng).toFixed(5);
+    pill.classList.add('visible');
+  }
+
+  function getCurrentLocation() {
+    if (!navigator.geolocation) { toast('Browser นี้ไม่รองรับ Geolocation', 'error'); return; }
+    const btn = document.getElementById('btnGetLoc');
+    btn.disabled = true; btn.textContent = '⏳ กำลังดึงพิกัด...';
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const lat = pos.coords.latitude, lng = pos.coords.longitude;
+        document.getElementById('lat').value = lat;
+        document.getElementById('lng').value = lng;
+        showCoordPill(lat, lng);
+        toast('📍 ดึงพิกัดสำเร็จ', 'success');
+        btn.disabled = false; btn.innerHTML = '📍 ดึงตำแหน่งปัจจุบันของฉัน';
+      },
+      err => {
+        toast('ไม่สามารถดึงตำแหน่งได้: ' + err.message, 'error');
+        btn.disabled = false; btn.innerHTML = '📍 ดึงตำแหน่งปัจจุบันของฉัน';
+      }
+    );
+  }
+
+  async function loadHoursConfig() {
+    try {
+      const h = await DB.getHours();
+      document.getElementById('checkinStart').value  = h.checkinStart  || '08:00';
+      document.getElementById('lateAfter').value     = h.lateAfter     || '09:00';
+      document.getElementById('checkoutTime').value  = h.checkoutTime  || '18:00';
+    } catch (e) {}
+  }
+
+  async function saveAll() {
+    const lat          = document.getElementById('lat').value;
+    const lng          = document.getElementById('lng').value;
+    const radius       = document.getElementById('radius').value;
+    const checkinStart = document.getElementById('checkinStart').value;
+    const lateAfter    = document.getElementById('lateAfter').value;
+    const checkoutTime = document.getElementById('checkoutTime').value;
+
+    if (!lat || !lng || !radius) { toast('กรุณากรอกข้อมูล GPS ให้ครบ', 'warning'); return; }
+
+    const btn = document.getElementById('btnSave');
+    btn.disabled = true; btn.textContent = '⏳ กำลังบันทึก...';
+
+    try {
+      await DB.saveConfig(lat, lng, radius, LiffAuth.getUserId());
+      await DB.saveHours(checkinStart, lateAfter, checkoutTime, LiffAuth.getUserId());
+      toast('✅ บันทึกการตั้งค่าเรียบร้อย', 'success', 3500);
+    } catch (e) {
+      toast('❌ บันทึกไม่ได้: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = '💾 บันทึกการตั้งค่าทั้งหมด';
+    }
+  }
+</script>
+</body>
+</html>

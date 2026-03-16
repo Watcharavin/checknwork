@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>รายงาน KPI พนักงาน</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/db.js"></script>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="js/liff-auth.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Sarabun', sans-serif;
+      min-height: 100vh;
+      background: #07071a;
+      color: #e2e8f0;
+      padding: 24px 16px 60px;
+      position: relative;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 60% 40% at 10% 5%,  rgba(99,102,241,0.18) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 40% at 90% 90%, rgba(16,185,129,0.12) 0%, transparent 52%);
+    }
+
+    .container { width: 100%; max-width: 900px; margin: 0 auto; position: relative; z-index: 1; }
+
+    /* Header */
+    .page-header { margin-bottom: 24px; }
+    .header-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px; flex-wrap: wrap; gap: 10px;
+    }
+    .back-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: #475569; text-decoration: none; font-size: 0.84em;
+      padding: 7px 14px; border-radius: 20px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.09);
+      transition: all 0.25s ease;
+    }
+    .back-btn:hover { color: #e2e8f0; background: rgba(255,255,255,0.09); }
+    h2 {
+      font-size: 1.55em; font-weight: 700;
+      background: linear-gradient(140deg, #c7d2fe 0%, #f1f5f9 55%, #a5b4fc 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      margin-bottom: 4px;
+    }
+    .page-subtitle { font-size: 0.82em; color: #334155; }
+
+    /* Summary Cards */
+    .summary-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px; margin-bottom: 20px;
+    }
+    .summary-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 18px; padding: 16px;
+      text-align: center;
+    }
+    .summary-card .s-val {
+      font-size: 2em; font-weight: 700; line-height: 1.1;
+    }
+    .summary-card .s-label {
+      font-size: 0.74em; color: #475569; margin-top: 4px;
+    }
+    .s-indigo { color: #818cf8; }
+    .s-green  { color: #34d399; }
+    .s-yellow { color: #fbbf24; }
+    .s-blue   { color: #67e8f9; }
+
+    /* Filter Bar */
+    .filter-bar {
+      display: flex; gap: 10px; align-items: center;
+      flex-wrap: wrap; margin-bottom: 16px;
+    }
+    .filter-bar label {
+      font-size: 0.78em; color: #475569; font-weight: 600;
+      letter-spacing: 0.05em; text-transform: uppercase;
+    }
+    select, input[type="month"], input[type="date"] {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px; color: #e2e8f0;
+      font-size: 0.88em; font-family: 'Sarabun', sans-serif;
+      padding: 8px 12px; outline: none;
+      transition: border-color 0.25s;
+    }
+    select:focus, input[type="month"]:focus, input[type="date"]:focus {
+      border-color: rgba(99,102,241,0.5);
+    }
+    option { background: #1e1e3a; }
+
+    .btn-filter {
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      color: white; border: none; border-radius: 10px;
+      padding: 8px 18px; font-size: 0.88em; font-weight: 600;
+      font-family: 'Sarabun', sans-serif; cursor: pointer;
+      transition: all 0.25s;
+    }
+    .btn-filter:hover { opacity: 0.88; transform: translateY(-1px); }
+
+    .btn-export {
+      background: rgba(16,185,129,0.12);
+      border: 1px solid rgba(16,185,129,0.3);
+      color: #34d399; border-radius: 10px;
+      padding: 8px 16px; font-size: 0.85em; font-weight: 600;
+      font-family: 'Sarabun', sans-serif; cursor: pointer;
+      transition: all 0.25s; margin-left: auto;
+    }
+    .btn-export:hover { background: rgba(16,185,129,0.2); }
+
+    /* KPI Table */
+    .card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 20px; overflow: hidden;
+      margin-bottom: 16px;
+    }
+    .card-title {
+      padding: 16px 20px 14px;
+      font-size: 0.9em; font-weight: 600; color: #94a3b8;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+    thead tr { background: rgba(255,255,255,0.03); }
+    th {
+      padding: 12px 16px; text-align: left;
+      font-size: 0.74em; font-weight: 600; color: #475569;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    td {
+      padding: 13px 16px;
+      font-size: 0.88em; color: #cbd5e1;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,0.025); }
+
+    .badge {
+      display: inline-block; padding: 3px 10px; border-radius: 20px;
+      font-size: 0.78em; font-weight: 600;
+    }
+    .badge-green  { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.3); }
+    .badge-yellow { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
+    .badge-red    { background: rgba(239,68,68,0.15);  color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+
+    /* Log Table */
+    .log-name { font-weight: 600; color: #e2e8f0; }
+    .log-time { font-variant-numeric: tabular-nums; color: #818cf8; }
+    .log-gps  { color: #34d399; text-decoration: none; font-size: 0.85em; }
+    .log-gps:hover { text-decoration: underline; }
+
+    /* Loading / Empty */
+    .loading {
+      text-align: center; padding: 48px 20px;
+      color: #334155; font-size: 0.9em;
+    }
+    .spinner-sm {
+      display: inline-block; width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.1);
+      border-top-color: #6366f1; border-radius: 50%;
+      animation: spin 0.8s linear infinite; margin-right: 8px;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.4s ease; }
+
+    /* Tabs */
+    .tabs {
+      display: flex; gap: 4px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px; padding: 4px;
+      margin-bottom: 16px; width: fit-content;
+    }
+    .tab {
+      padding: 7px 18px; border-radius: 9px; cursor: pointer;
+      font-size: 0.85em; font-weight: 600; color: #475569;
+      transition: all 0.22s; border: none; background: none;
+      font-family: 'Sarabun', sans-serif;
+    }
+    .tab.active {
+      background: rgba(99,102,241,0.2);
+      border: 1px solid rgba(99,102,241,0.35);
+      color: #a5b4fc;
+    }
+
+    /* Leave cards */
+    .leave-item {
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px; padding: 14px 16px; margin-bottom: 10px;
+    }
+    .leave-top  { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .leave-name { font-weight: 700; color: #e2e8f0; }
+    .leave-meta { font-size: 0.82em; color: #64748b; margin-top: 4px; }
+    .leave-reason { font-size: 0.82em; color: #475569; margin-top: 6px; }
+    .status-badge {
+      display: inline-block; padding: 4px 12px; border-radius: 20px;
+      font-size: 0.75em; font-weight: 700; flex-shrink: 0;
+    }
+    .status-pending  { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.35); }
+    .status-approved { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.35); }
+    .status-rejected { background: rgba(239,68,68,0.15);  color: #f87171; border: 1px solid rgba(239,68,68,0.35); }
+    .action-row { display: flex; gap: 8px; margin-top: 10px; }
+    .btn-approve, .btn-reject {
+      flex: 1; padding: 8px; border: none; border-radius: 10px; cursor: pointer;
+      font-size: 0.85em; font-weight: 700; font-family: 'Sarabun', sans-serif; transition: all 0.2s;
+    }
+    .btn-approve { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.35); }
+    .btn-approve:hover { background: rgba(16,185,129,0.3); }
+    .btn-reject  { background: rgba(239,68,68,0.12);  color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+    .btn-reject:hover  { background: rgba(239,68,68,0.25); }
+    .leave-filter { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .filter-chip {
+      padding: 5px 14px; border-radius: 20px; cursor: pointer; font-size: 0.82em; font-weight: 600;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09);
+      color: #475569; transition: all 0.2s; font-family: 'Sarabun', sans-serif;
+    }
+    .filter-chip.active { background: rgba(99,102,241,0.18); border-color: rgba(99,102,241,0.4); color: #a5b4fc; }
+
+    @media (max-width: 600px) {
+      th:nth-child(4), td:nth-child(4),
+      th:nth-child(5), td:nth-child(5) { display: none; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="page-header">
+    <div class="header-row">
+      <a href="index.html" class="back-btn">← กลับ</a>
+      <div id="userBadge" style="
+        display:none; align-items:center; gap:6px;
+        background:rgba(99,102,241,0.08);
+        border:1px solid rgba(99,102,241,0.25);
+        padding:5px 10px; border-radius:20px;
+      "></div>
+    </div>
+    <h2>📊 รายงาน KPI พนักงาน</h2>
+    <p class="page-subtitle">ติดตามการเข้างานและประสิทธิภาพรายบุคคล</p>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="summary-grid" id="summaryGrid">
+    <div class="summary-card">
+      <div class="s-val s-indigo" id="sumTotal">—</div>
+      <div class="s-label">เช็คอินทั้งหมด</div>
+    </div>
+    <div class="summary-card">
+      <div class="s-val s-green" id="sumToday">—</div>
+      <div class="s-label">เช็คอินวันนี้</div>
+    </div>
+    <div class="summary-card">
+      <div class="s-val s-blue" id="sumPeople">—</div>
+      <div class="s-label">จำนวนพนักงาน</div>
+    </div>
+    <div class="summary-card">
+      <div class="s-val s-yellow" id="sumAvgTime">—</div>
+      <div class="s-label">เวลาเฉลี่ย</div>
+    </div>
+  </div>
+
+  <!-- Filter -->
+  <div class="filter-bar">
+    <label>เดือน</label>
+    <input type="month" id="filterMonth">
+    <button class="btn-filter" onclick="loadData()">ค้นหา</button>
+    <button class="btn-export" onclick="exportCSV()">⬇ Export CSV</button>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('kpi', this)">KPI รายคน</button>
+    <button class="tab" onclick="switchTab('log', this)">บันทึกเช็คอิน</button>
+    <button class="tab" onclick="switchTab('leave', this)">วันลา <span id="pendingBadge" style="display:none;background:#f59e0b;color:#000;border-radius:99px;padding:1px 7px;font-size:0.78em;margin-left:4px"></span></button>
+  </div>
+
+  <!-- KPI Tab -->
+  <div id="tab-kpi" class="fade-in">
+    <div class="card">
+      <div class="card-title">👤 สรุป KPI รายบุคคล</div>
+      <div id="kpiBody"><div class="loading"><span class="spinner-sm"></span>กำลังโหลด...</div></div>
+    </div>
+  </div>
+
+  <!-- Log Tab -->
+  <div id="tab-log" style="display:none" class="fade-in">
+    <div class="card">
+      <div class="card-title">🕐 บันทึกการเช็คอินทั้งหมด</div>
+      <div id="logBody"><div class="loading"><span class="spinner-sm"></span>กำลังโหลด...</div></div>
+    </div>
+  </div>
+
+  <!-- Leave Tab -->
+  <div id="tab-leave" style="display:none" class="fade-in">
+    <div id="leaveContent"><div class="loading"><span class="spinner-sm"></span>กำลังโหลด...</div></div>
+  </div>
+
+</div>
+
+<script>
+  let allRecords = [];
+  let currentTab = 'kpi';
+
+  function toast(msg, type = 'info', dur = 3000) {
+    const el = document.createElement('div');
+    el.className = `toast toast-${type}`;
+    el.textContent = msg;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
+    setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 420); }, dur);
+  }
+
+  // ── Init ──
+  window.addEventListener('load', async () => {
+    const ok = await LiffAuth.initAdmin();
+    if (!ok) return;
+    renderUserBadge('userBadge');
+
+    // ตั้ง default เดือนปัจจุบัน
+    const now = new Date();
+    document.getElementById('filterMonth').value =
+      now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+
+    loadData();
+  });
+
+  // ── โหลดข้อมูล ──
+  async function loadData() {
+    const monthVal = document.getElementById('filterMonth').value; // "2025-03"
+    const [year, month] = monthVal.split('-').map(Number);
+
+    try {
+      const db = firebase.firestore();
+      const hoursConfig = await DB.getHours();
+      window._lateAfter = hoursConfig.lateAfter || '09:00';
+
+      // ดึงทุก record ของเดือนที่เลือก
+      const snap = await db.collection('attendance')
+        .orderBy('timestamp', 'desc')
+        .get();
+
+      allRecords = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .filter(r => {
+          if (!r.timestamp) return false;
+          const d = r.timestamp.toDate ? r.timestamp.toDate() : new Date(r.timestamp);
+          return d.getFullYear() === year && (d.getMonth() + 1) === month;
+        });
+
+      renderSummary();
+      renderKPI();
+      renderLog();
+    } catch (e) {
+      document.getElementById('kpiBody').innerHTML =
+        `<div class="loading" style="color:#f87171">❌ โหลดข้อมูลไม่ได้: ${e.message}</div>`;
+    }
+  }
+
+  // ── Summary Cards ──
+  function renderSummary() {
+    const todayStr = new Date().toLocaleDateString('th-TH');
+    const todayCount = allRecords.filter(r => r.date === todayStr).length;
+    const people = new Set(allRecords.map(r => r.name)).size;
+
+    // เวลาเฉลี่ย (แปลง HH:MM:SS เป็น minutes)
+    const times = allRecords.map(r => {
+      if (!r.time) return null;
+      const parts = r.time.split(':').map(Number);
+      return parts[0] * 60 + (parts[1] || 0);
+    }).filter(Boolean);
+    const avgMin = times.length ? Math.round(times.reduce((a, b) => a + b, 0) / times.length) : null;
+    const avgStr = avgMin !== null
+      ? String(Math.floor(avgMin / 60)).padStart(2, '0') + ':' + String(avgMin % 60).padStart(2, '0')
+      : '—';
+
+    document.getElementById('sumTotal').textContent  = allRecords.length;
+    document.getElementById('sumToday').textContent  = todayCount;
+    document.getElementById('sumPeople').textContent = people;
+    document.getElementById('sumAvgTime').textContent = avgStr;
+  }
+
+  // ── KPI Table ──
+  function renderKPI() {
+    if (allRecords.length === 0) {
+      document.getElementById('kpiBody').innerHTML =
+        '<div class="loading">ไม่มีข้อมูลในเดือนนี้</div>';
+      return;
+    }
+
+    // จัดกลุ่มตามชื่อ
+    const grouped = {};
+    allRecords.forEach(r => {
+      if (!grouped[r.name]) grouped[r.name] = [];
+      grouped[r.name].push(r);
+    });
+
+    // คำนวณวันทำงาน (จันทร์-ศุกร์) ในเดือน
+    const monthVal = document.getElementById('filterMonth').value;
+    const [year, month] = monthVal.split('-').map(Number);
+    const workDays = countWorkDays(year, month);
+
+    const rows = Object.entries(grouped)
+      .sort((a, b) => b[1].length - a[1].length)
+      .map(([name, recs]) => {
+        const days = new Set(recs.map(r => r.date)).size;
+        const pct = workDays > 0 ? Math.round(days / workDays * 100) : 0;
+        const late = recs.filter(r => isLate(r.time)).length;
+        const last = recs[0]; // ล่าสุด (sort desc)
+        const lastDate = last?.date || '—';
+        const lastTime = last?.time || '—';
+
+        const badgeClass = pct >= 90 ? 'badge-green' : pct >= 70 ? 'badge-yellow' : 'badge-red';
+        const pctLabel = pct >= 90 ? 'ดีมาก' : pct >= 70 ? 'ปานกลาง' : 'ต่ำ';
+
+        return `<tr>
+          <td class="log-name">${_esc(name)}</td>
+          <td style="text-align:center;font-weight:700;color:#a5b4fc">${days}</td>
+          <td style="text-align:center">${workDays}</td>
+          <td style="text-align:center">
+            <span class="badge ${badgeClass}">${pct}% ${pctLabel}</span>
+          </td>
+          <td style="text-align:center;color:${late > 0 ? '#fbbf24' : '#34d399'}">${late}</td>
+          <td style="color:#64748b;font-size:0.83em">${lastDate} ${lastTime.slice(0,5)}</td>
+        </tr>`;
+      }).join('');
+
+    document.getElementById('kpiBody').innerHTML = `
+      <table>
+        <thead><tr>
+          <th>ชื่อพนักงาน</th>
+          <th style="text-align:center">วันที่มา</th>
+          <th style="text-align:center">วันทำงาน</th>
+          <th style="text-align:center">อัตราการมา</th>
+          <th style="text-align:center">สาย</th>
+          <th>เช็คอินล่าสุด</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  // ── Log Table ──
+  function renderLog() {
+    if (allRecords.length === 0) {
+      document.getElementById('logBody').innerHTML =
+        '<div class="loading">ไม่มีข้อมูลในเดือนนี้</div>';
+      return;
+    }
+
+    // จับคู่ checkin+checkout ต่อคนต่อวัน
+    const grouped = {};
+    allRecords.forEach(r => {
+      const key = (r.name || '') + '|' + (r.date || '');
+      if (!grouped[key]) grouped[key] = { name: r.name, date: r.date, checkin: null, checkout: null };
+      if (!r.type || r.type === 'checkin') grouped[key].checkin  = r;
+      if (r.type === 'checkout')           grouped[key].checkout = r;
+    });
+
+    const rows = Object.values(grouped)
+      .sort((a, b) => {
+        const ta = a.checkin?.timestamp?.toDate ? a.checkin.timestamp.toDate() : new Date(0);
+        const tb = b.checkin?.timestamp?.toDate ? b.checkin.timestamp.toDate() : new Date(0);
+        return tb - ta;
+      })
+      .map(g => {
+        const inTime  = g.checkin  ? (g.checkin.time  || '—').slice(0,5) : '—';
+        const outTime = g.checkout ? (g.checkout.time || '—').slice(0,5) : '<span style="color:#475569">—</span>';
+        const lateTag = g.checkin && isLate(g.checkin.time)
+          ? '<span class="badge badge-yellow" style="font-size:0.7em;margin-left:4px">สาย</span>' : '';
+        const noOut = !g.checkout
+          ? '<span style="color:#475569;font-size:0.78em"> ยังไม่ออก</span>' : '';
+        const gps = g.checkin?.mapLink
+          ? `<a href="${g.checkin.mapLink}" target="_blank" class="log-gps">📍</a>` : '—';
+        return `<tr>
+          <td class="log-name">${_esc(g.name)}</td>
+          <td style="color:#64748b;font-size:0.85em">${g.date || '—'}</td>
+          <td class="log-time" style="color:#34d399">${inTime}${lateTag}</td>
+          <td class="log-time" style="color:#fbbf24">${outTime}${noOut}</td>
+          <td>${gps}</td>
+        </tr>`;
+      }).join('');
+
+    document.getElementById('logBody').innerHTML = `
+      <table>
+        <thead><tr>
+          <th>ชื่อ</th>
+          <th>วันที่</th>
+          <th style="color:#34d399">เข้างาน</th>
+          <th style="color:#fbbf24">ออกงาน</th>
+          <th>GPS</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  // ── Export CSV ──
+  function exportCSV() {
+    if (!allRecords.length) return alert('ไม่มีข้อมูล');
+    const header = 'ชื่อ,วันที่,เวลา,LINE User ID,GPS Link';
+    const rows = allRecords.map(r =>
+      [r.name, r.date, r.time, r.lineUserId, r.mapLink || ''].map(v => `"${v || ''}"`).join(',')
+    );
+    const csv = '\uFEFF' + [header, ...rows].join('\n'); // BOM for Thai Excel
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url;
+    a.download = 'attendance_' + document.getElementById('filterMonth').value + '.csv';
+    a.click(); URL.revokeObjectURL(url);
+  }
+
+  // ── Tab Switch ──
+  function switchTab(name, btn) {
+    currentTab = name;
+    document.getElementById('tab-kpi').style.display   = name === 'kpi'   ? 'block' : 'none';
+    document.getElementById('tab-log').style.display   = name === 'log'   ? 'block' : 'none';
+    document.getElementById('tab-leave').style.display = name === 'leave' ? 'block' : 'none';
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    if (name === 'leave') loadLeaves();
+  }
+
+  // ── Leave Management ──
+  let leaveFilter = 'pending';
+  let allLeaves   = [];
+
+  async function loadLeaves() {
+    document.getElementById('leaveContent').innerHTML =
+      '<div class="loading"><span class="spinner-sm"></span>กำลังโหลด...</div>';
+    try {
+      allLeaves = await DB.getAllLeaves();
+      const pending = allLeaves.filter(l => l.status === 'pending').length;
+      const badge = document.getElementById('pendingBadge');
+      if (pending > 0) { badge.style.display = 'inline'; badge.textContent = pending; }
+      else badge.style.display = 'none';
+      renderLeaves();
+    } catch (e) {
+      document.getElementById('leaveContent').innerHTML =
+        `<div class="loading" style="color:#f87171">โหลดไม่ได้: ${e.message}</div>`;
+    }
+  }
+
+  function renderLeaves() {
+    const filtered = leaveFilter === 'all'
+      ? allLeaves : allLeaves.filter(l => l.status === leaveFilter);
+
+    const typeLabel = { sick: '🤒 ลาป่วย', personal: '📋 ลากิจ', annual: '🏖️ ลาพักร้อน' };
+    const statusLabel = { pending: '⏳ รออนุมัติ', approved: '✅ อนุมัติ', rejected: '❌ ไม่อนุมัติ' };
+
+    const cards = filtered.length === 0
+      ? '<div class="empty">ไม่มีรายการ</div>'
+      : filtered.map(l => {
+          const days = Math.max(1, Math.round((new Date(l.endDate) - new Date(l.startDate)) / 86400000) + 1);
+          const actionBtns = l.status === 'pending' ? `
+            <div class="action-row">
+              <button class="btn-approve" onclick="approveLeave('${l.id}', 'approved')">✅ อนุมัติ</button>
+              <button class="btn-reject"  onclick="approveLeave('${l.id}', 'rejected')">❌ ไม่อนุมัติ</button>
+            </div>` : '';
+          return `
+            <div class="leave-item" id="leave-${l.id}">
+              <div class="leave-top">
+                <div>
+                  <div class="leave-name">${_esc(l.name)}</div>
+                  <div class="leave-meta">${typeLabel[l.type] || l.type} · ${l.startDate} – ${l.endDate} (${days} วัน)</div>
+                  ${l.reason ? `<div class="leave-reason">💬 ${_esc(l.reason)}</div>` : ''}
+                </div>
+                <span class="status-badge status-${l.status}">${statusLabel[l.status]}</span>
+              </div>
+              ${actionBtns}
+            </div>`;
+        }).join('');
+
+    document.getElementById('leaveContent').innerHTML = `
+      <div class="leave-filter">
+        <button class="filter-chip ${leaveFilter==='pending'?'active':''}"  onclick="setLeaveFilter('pending',this)">⏳ รออนุมัติ</button>
+        <button class="filter-chip ${leaveFilter==='approved'?'active':''}" onclick="setLeaveFilter('approved',this)">✅ อนุมัติแล้ว</button>
+        <button class="filter-chip ${leaveFilter==='rejected'?'active':''}" onclick="setLeaveFilter('rejected',this)">❌ ไม่อนุมัติ</button>
+        <button class="filter-chip ${leaveFilter==='all'?'active':''}"      onclick="setLeaveFilter('all',this)">ทั้งหมด</button>
+      </div>
+      ${cards}`;
+  }
+
+  function setLeaveFilter(f, btn) {
+    leaveFilter = f;
+    renderLeaves();
+  }
+
+  async function approveLeave(id, status) {
+    const el = document.getElementById('leave-' + id);
+    if (el) el.style.opacity = '0.5';
+    try {
+      await DB.updateLeaveStatus(id, status, LiffAuth.getUserId());
+      const idx = allLeaves.findIndex(l => l.id === id);
+      if (idx !== -1) allLeaves[idx].status = status;
+      const pending = allLeaves.filter(l => l.status === 'pending').length;
+      const badge = document.getElementById('pendingBadge');
+      if (pending > 0) { badge.style.display = 'inline'; badge.textContent = pending; }
+      else badge.style.display = 'none';
+      renderLeaves();
+      toast(status === 'approved' ? '✅ อนุมัติแล้ว' : '❌ ไม่อนุมัติ', status === 'approved' ? 'success' : 'error');
+    } catch (e) {
+      toast('เกิดข้อผิดพลาด: ' + e.message, 'error');
+      if (el) el.style.opacity = '1';
+    }
+  }
+
+  // ── Helpers ──
+
+  // นับวันจันทร์-ศุกร์ในเดือน
+  function countWorkDays(year, month) {
+    let count = 0;
+    const days = new Date(year, month, 0).getDate();
+    for (let d = 1; d <= days; d++) {
+      const day = new Date(year, month - 1, d).getDay();
+      if (day >= 1 && day <= 5) count++;
+    }
+    return count;
+  }
+
+  function isLate(timeStr) {
+    if (!timeStr) return false;
+    const threshold = window._lateAfter || '09:00';
+    return timeStr.slice(0,5) > threshold;
+  }
+
+  function _esc(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+</script>
+</body>
+</html>
