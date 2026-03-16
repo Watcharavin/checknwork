@@ -127,6 +127,13 @@
     .input-row {
       display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
     }
+    .time-row {
+      display: flex; align-items: center; gap: 6px;
+    }
+    .time-row select { flex: 1; min-width: 0; }
+    .time-sep {
+      font-size: 1.1em; font-weight: 700; color: #94a3b8; flex-shrink: 0;
+    }
 
     /* ── Buttons ── */
     .btn {
@@ -244,20 +251,29 @@
       <span class="section-title-text">เวลาทำงาน</span>
     </div>
 
-    <div class="input-row">
-      <div class="field" style="margin-bottom:0">
-        <label>เริ่มงาน</label>
-        <input type="time" id="checkinStart" value="08:00">
-      </div>
-      <div class="field" style="margin-bottom:0">
-        <label>ถือว่าสาย</label>
-        <input type="time" id="lateAfter" value="09:00">
+    <div class="field">
+      <label>เริ่มงาน</label>
+      <div class="time-row">
+        <select id="checkinStartH"></select>
+        <span class="time-sep">:</span>
+        <select id="checkinStartM"></select>
       </div>
     </div>
-    <div style="height:14px"></div>
     <div class="field">
+      <label>ถือว่าสาย</label>
+      <div class="time-row">
+        <select id="lateAfterH"></select>
+        <span class="time-sep">:</span>
+        <select id="lateAfterM"></select>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:0">
       <label>เวลาออกงาน</label>
-      <input type="time" id="checkoutTime" value="18:00">
+      <div class="time-row">
+        <select id="checkoutTimeH"></select>
+        <span class="time-sep">:</span>
+        <select id="checkoutTimeM"></select>
+      </div>
     </div>
   </div>
 
@@ -271,6 +287,33 @@
 </div>
 
 <script>
+  function initTimeSelect(prefix, defaultVal) {
+    const [dh, dm] = (defaultVal || '08:00').split(':').map(Number);
+    const hEl = document.getElementById(prefix + 'H');
+    const mEl = document.getElementById(prefix + 'M');
+    hEl.innerHTML = '';
+    for (let h = 0; h < 24; h++) {
+      const opt = document.createElement('option');
+      opt.value = String(h).padStart(2, '0');
+      opt.textContent = String(h).padStart(2, '0') + ' น.';
+      if (h === dh) opt.selected = true;
+      hEl.appendChild(opt);
+    }
+    mEl.innerHTML = '';
+    for (let m = 0; m < 60; m += 5) {
+      const opt = document.createElement('option');
+      opt.value = String(m).padStart(2, '0');
+      opt.textContent = ':' + String(m).padStart(2, '0');
+      if (m === Math.round(dm / 5) * 5) opt.selected = true;
+      mEl.appendChild(opt);
+    }
+  }
+
+  function getTimeVal(prefix) {
+    return document.getElementById(prefix + 'H').value + ':' +
+           document.getElementById(prefix + 'M').value;
+  }
+
   function toast(msg, type = 'info', dur = 3500) {
     const el = document.createElement('div');
     el.className = `toast toast-${type}`;
@@ -330,19 +373,23 @@
   async function loadHoursConfig() {
     try {
       const h = await DB.getHours();
-      document.getElementById('checkinStart').value  = h.checkinStart  || '08:00';
-      document.getElementById('lateAfter').value     = h.lateAfter     || '09:00';
-      document.getElementById('checkoutTime').value  = h.checkoutTime  || '18:00';
-    } catch (e) {}
+      initTimeSelect('checkinStart',  h.checkinStart  || '08:00');
+      initTimeSelect('lateAfter',     h.lateAfter     || '09:00');
+      initTimeSelect('checkoutTime',  h.checkoutTime  || '18:00');
+    } catch (e) {
+      initTimeSelect('checkinStart',  '08:00');
+      initTimeSelect('lateAfter',     '09:00');
+      initTimeSelect('checkoutTime',  '18:00');
+    }
   }
 
   async function saveAll() {
     const lat          = document.getElementById('lat').value;
     const lng          = document.getElementById('lng').value;
     const radius       = document.getElementById('radius').value;
-    const checkinStart = document.getElementById('checkinStart').value;
-    const lateAfter    = document.getElementById('lateAfter').value;
-    const checkoutTime = document.getElementById('checkoutTime').value;
+    const checkinStart = getTimeVal('checkinStart');
+    const lateAfter    = getTimeVal('lateAfter');
+    const checkoutTime = getTimeVal('checkoutTime');
 
     if (!lat || !lng || !radius) { toast('กรุณากรอกข้อมูล GPS ให้ครบ', 'warning'); return; }
 
